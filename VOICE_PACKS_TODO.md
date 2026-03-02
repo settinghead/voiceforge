@@ -1,6 +1,6 @@
 # Voice Packs TODO
 
-Game character voices to add as SC Commander voice packs.
+Game character voices to add as Adjutant Voice voice packs.
 
 ## Tier 1 — Perfect Fit (military AI / advisor)
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""SC Commander - StarCraft-style voice notifications for Claude Code.
+"""Adjutant Voice - StarCraft-style voice notifications for Claude Code.
 
 Generates contextual 1-6 word phrases via OpenRouter LLM,
 speaks them through a local Chatterbox TTS server.

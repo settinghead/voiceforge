@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# SC Commander Uninstaller
+# Adjutant Voice Uninstaller
 
-INSTALL_DIR="$HOME/.claude/hooks/sc-commander"
-SKILL_DIR="$HOME/.claude/skills/sc-commander-config"
+INSTALL_DIR="$HOME/.claude/hooks/adjutant-voice"
+SKILL_DIR="$HOME/.claude/skills/adjutant-voice-config"
 SETTINGS_FILE="$HOME/.claude/settings.json"
 
-echo "=== SC Commander Uninstaller ==="
+echo "=== Adjutant Voice Uninstaller ==="
 echo ""
 
 # --- Remove hooks from settings.json ---
@@ -27,7 +27,7 @@ for event, blocks in hooks.items():
     blocks[:] = [
         block for block in blocks
         if not any(
-            'sc-commander' in h.get('command', '')
+            'adjutant-voice' in h.get('command', '')
             for h in block.get('hooks', [])
         )
     ]
@@ -71,4 +71,4 @@ fi
 
 echo ""
 echo "=== Uninstall Complete ==="
-echo "SC Commander has been removed from Claude Code."
+echo "Adjutant Voice has been removed from Claude Code."

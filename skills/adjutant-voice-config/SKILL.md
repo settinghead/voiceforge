@@ -1,16 +1,16 @@
 ---
-name: sc-commander-config
-description: View and edit SC Commander configuration (voice notifications)
+name: adjutant-voice-config
+description: View and edit Adjutant Voice configuration (voice notifications)
 user_invocable: true
 ---
 
-# SC Commander Configuration
+# Adjutant Voice Configuration
 
-SC Commander generates StarCraft-style voice notifications for Claude Code hook events.
+Adjutant Voice generates StarCraft-style voice notifications for Claude Code hook events.
 
 ## Config File Location
 
-`~/.claude/hooks/sc-commander/config.json`
+`~/.claude/hooks/adjutant-voice/config.json`
 
 ## Configuration Fields
 
@@ -38,11 +38,11 @@ SC Commander generates StarCraft-style voice notifications for Claude Code hook 
 
 ## Instructions
 
-When the user asks to configure SC Commander:
+When the user asks to configure Adjutant Voice:
 
 1. **Read** the current config:
    ```
-   Read ~/.claude/hooks/sc-commander/config.json
+   Read ~/.claude/hooks/adjutant-voice/config.json
    ```
 
 2. **Edit** values using the Edit tool on that file.
@@ -54,7 +54,7 @@ When the user asks to configure SC Commander:
 To clear the TTS audio cache (e.g., after changing voice):
 
 ```bash
-rm -f ~/.claude/hooks/sc-commander/cache/*.wav
+rm -f ~/.claude/hooks/adjutant-voice/cache/*.wav
 ```
 
-This forces SC Commander to regenerate audio on next use.
+This forces Adjutant Voice to regenerate audio on next use.
