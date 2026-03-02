@@ -185,52 +185,92 @@ def kill_previous_sound():
         pass
 
 
+def _save_pid(pid):
+    try:
+        with open(PID_FILE, "w") as f:
+            f.write(str(pid))
+    except OSError:
+        pass
+
+
+def _play_cached(cache_path, volume):
+    """Play a cached wav file with afplay."""
+    kill_previous_sound()
+    proc = subprocess.Popen(
+        ["afplay", "-v", str(volume), cache_path],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    _save_pid(proc.pid)
+
+
+def _stream_and_play(resp, cache_path, volume):
+    """Stream TTS response to ffplay while caching to disk."""
+    kill_previous_sound()
+    vol_pct = str(int(float(volume) * 100))
+    player = subprocess.Popen(
+        ["ffplay", "-nodisp", "-autoexit", "-volume", vol_pct, "-i", "pipe:0"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    _save_pid(player.pid)
+    with open(cache_path, "wb") as cache_file:
+        while True:
+            chunk = resp.read(4096)
+            if not chunk:
+                break
+            cache_file.write(chunk)
+            try:
+                player.stdin.write(chunk)
+            except BrokenPipeError:
+                break
+    player.stdin.close()
+
+
 def speak_phrase(phrase, config):
     """Send phrase to Chatterbox TTS server and play the audio."""
     os.makedirs(CACHE_DIR, exist_ok=True)
 
     cache_key = hashlib.md5(phrase.lower().encode()).hexdigest()
     cache_path = os.path.join(CACHE_DIR, f"{cache_key}.wav")
+    volume = config.get("volume", 0.5)
 
-    # Generate audio if not cached
-    if not os.path.exists(cache_path):
-        chatterbox_url = config.get("chatterbox_url", "http://localhost:8004")
-        endpoint = f"{chatterbox_url}/v1/audio/speech"
+    # Cached: play immediately
+    if os.path.exists(cache_path):
+        _play_cached(cache_path, volume)
+        return
 
-        payload = json.dumps({
-            "input": phrase,
-            "voice": config.get("voice", "default.wav"),
-            "model": "chatterbox-turbo",
-            "response_format": "wav",
-        }).encode()
+    # Fetch from TTS server
+    chatterbox_url = config.get("chatterbox_url", "http://localhost:8004")
+    endpoint = f"{chatterbox_url}/v1/audio/speech"
 
-        req = urllib.request.Request(
-            endpoint,
-            data=payload,
-            headers={"Content-Type": "application/json"},
-        )
+    payload = json.dumps({
+        "input": phrase,
+        "voice": config.get("voice", "default.wav"),
+        "model": "chatterbox-turbo",
+        "response_format": "wav",
+    }).encode()
 
-        try:
-            resp = urllib.request.urlopen(req, timeout=8)
-            with open(cache_path, "wb") as f:
-                f.write(resp.read())
-        except Exception:
-            # Chatterbox server not available - fail silently
-            return
-
-    # Kill previous sound and play new one
-    kill_previous_sound()
-    volume = str(config.get("volume", 0.5))
-    proc = subprocess.Popen(
-        ["afplay", "-v", volume, cache_path],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+    req = urllib.request.Request(
+        endpoint,
+        data=payload,
+        headers={"Content-Type": "application/json"},
     )
+
     try:
-        with open(PID_FILE, "w") as f:
-            f.write(str(proc.pid))
-    except OSError:
-        pass
+        resp = urllib.request.urlopen(req, timeout=8)
+    except Exception:
+        return
+
+    # Try streaming playback via ffplay (starts audio before full download)
+    try:
+        _stream_and_play(resp, cache_path, volume)
+    except FileNotFoundError:
+        # ffplay not available — fall back to full download + afplay
+        with open(cache_path, "wb") as f:
+            f.write(resp.read())
+        _play_cached(cache_path, volume)
 
 
 def main():
