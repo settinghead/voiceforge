@@ -2,5 +2,4 @@ config.json
 cache/
 llm_collect/
 .sound.pid
-__pycache__/
-*.pyc
+node_modules/

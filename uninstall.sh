@@ -12,37 +12,31 @@ echo ""
 
 # --- Remove hooks from settings.json ---
 if [[ -f "$SETTINGS_FILE" ]]; then
-    python3 -c "
-import json
+    node -e "
+const fs = require('fs');
 
-with open('$SETTINGS_FILE') as f:
-    settings = json.load(f)
+const settings = JSON.parse(fs.readFileSync('$SETTINGS_FILE', 'utf-8'));
+const hooks = settings.hooks || {};
+let removed = 0;
+const eventsToDelete = [];
 
-hooks = settings.get('hooks', {})
-removed = 0
-events_to_delete = []
-
-for event, blocks in hooks.items():
-    original_len = len(blocks)
-    blocks[:] = [
-        block for block in blocks
-        if not any(
-            'voiceforge' in h.get('command', '')
-            for h in block.get('hooks', [])
+for (const [event, blocks] of Object.entries(hooks)) {
+    const originalLen = blocks.length;
+    hooks[event] = blocks.filter(
+        block => !block.hooks || !block.hooks.some(
+            h => (h.command || '').includes('voiceforge')
         )
-    ]
-    removed += original_len - len(blocks)
-    if not blocks:
-        events_to_delete.append(event)
+    );
+    removed += originalLen - hooks[event].length;
+    if (hooks[event].length === 0) eventsToDelete.push(event);
+}
 
-for event in events_to_delete:
-    del hooks[event]
+for (const event of eventsToDelete) {
+    delete hooks[event];
+}
 
-with open('$SETTINGS_FILE', 'w') as f:
-    json.dump(settings, f, indent=2)
-    f.write('\n')
-
-print(f'  Removed {removed} hook(s) from settings.json')
+fs.writeFileSync('$SETTINGS_FILE', JSON.stringify(settings, null, 2) + '\n');
+console.log('  Removed ' + removed + ' hook(s) from settings.json');
 "
 else
     echo "  No settings.json found — skipping hook removal"
@@ -65,6 +59,7 @@ if [[ -d "$INSTALL_DIR" ]]; then
     else
         # Remove everything except config.json and cache/
         find "$INSTALL_DIR" -maxdepth 1 -type f ! -name 'config.json' -delete
+        rm -rf "$INSTALL_DIR/src"
         echo "  Removed hook scripts (kept config.json and cache/)"
     fi
 fi

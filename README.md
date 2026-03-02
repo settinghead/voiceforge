@@ -8,10 +8,10 @@ Voice packs for [Claude Code](https://docs.anthropic.com/en/docs/claude-code). A
 Claude Code Hook Event
         |
         v
-  voiceforge.sh  (bash entry point)
+  voiceforge.sh      (bash entry point)
         |
         v
-  voiceforge.py  (core logic)
+  src/voiceforge.js  (core logic, Node.js)
         |
         +---> OpenRouter LLM  (generates contextual phrase)
         |         |
@@ -19,7 +19,7 @@ Claude Code Hook Event
         +---> Chatterbox TTS  (text-to-speech, local server)
         |         |
         |         v
-        +---> afplay           (audio playback)
+        +---> ffplay / afplay  (audio playback)
 ```
 
 1. Claude Code fires a hook event (task complete, error, etc.)
@@ -40,7 +40,7 @@ Then edit `~/.claude/hooks/voiceforge/config.json` to add your OpenRouter API ke
 ## Prerequisites
 
 - **macOS** (uses `afplay` for audio; see Linux note below)
-- **Python 3.6+**
+- **Node.js 18+**
 - **OpenRouter API key** — get one at [openrouter.ai](https://openrouter.ai)
 - **Chatterbox TTS server** — local text-to-speech (see setup below)
 
@@ -149,15 +149,14 @@ Additional hook events (SessionEnd, SubagentStart) are registered but use the cl
 
 ## Linux Support
 
-VoiceForge uses `afplay` (macOS) for audio playback. On Linux, replace the `afplay` call in `voiceforge.py` with your preferred player:
+VoiceForge prefers `ffplay` (from FFmpeg) for audio playback with echo effects, falling back to `afplay` (macOS). On Linux, install FFmpeg for `ffplay` support, or edit `src/voiceforge.js` to use your preferred player:
 
-```python
-# Replace:
-["afplay", "-v", volume, cache_path]
-# With (PulseAudio):
-["paplay", cache_path]
-# Or (PipeWire):
-["pw-play", cache_path]
+```javascript
+// In playCached(), replace the afplay fallback with:
+// PulseAudio:
+spawn("paplay", [cachePath], { stdio: ["ignore", "ignore", "ignore"] });
+// PipeWire:
+spawn("pw-play", [cachePath], { stdio: ["ignore", "ignore", "ignore"] });
 ```
 
 ## Uninstall
