@@ -98,11 +98,11 @@ SYSTEM_PROMPT = (
     "Be authoritative and robotic. No punctuation. No quotes. No explanation. "
     "Do NOT include the project name — it will be prepended automatically. "
     "Examples: "
-    "Authorization bypass for session security patched. "
-    "Database pooling for improved performance refactored. "
-    "Reliability test suite confirmed."
-    "Memory leak in cache layer fixed",
-    "Rate limiter for abuse prevention deployed, "
+    "\nAuthorization bypass for session security patched. "
+    "\nDatabase pooling for improved performance refactored. "
+    "\nReliability test suite confirmed. "
+    "\nMemory leak in cache layer fixed. "
+    "\nRate limiter for abuse prevention deployed."
 )
 
 
@@ -312,7 +312,7 @@ def main():
 
     # Prepend project name as prefix
     if project_name:
-        phrase = f"{project_name}: {phrase}"
+        phrase = f"{project_name}, {phrase}"
 
     speak_phrase(phrase, config)
 
