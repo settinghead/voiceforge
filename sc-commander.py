@@ -193,14 +193,30 @@ def _save_pid(pid):
         pass
 
 
+def _echo_filter():
+    """Return an ffplay/ffmpeg aecho filter string for StarCraft-style reverb."""
+    # Short multi-tap echo: two taps at 40ms and 75ms with moderate decay
+    return "aecho=0.8:0.88:40|75:0.4|0.25"
+
+
 def _play_cached(cache_path, volume):
-    """Play a cached wav file with afplay."""
+    """Play a cached wav file, preferring ffplay (for echo) with afplay fallback."""
     kill_previous_sound()
-    proc = subprocess.Popen(
-        ["afplay", "-v", str(volume), cache_path],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
+    try:
+        vol_pct = str(int(float(volume) * 100))
+        proc = subprocess.Popen(
+            ["ffplay", "-nodisp", "-autoexit", "-volume", vol_pct,
+             "-af", _echo_filter(), cache_path],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except FileNotFoundError:
+        # ffplay not available — fall back to afplay (no echo)
+        proc = subprocess.Popen(
+            ["afplay", "-v", str(volume), cache_path],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
     _save_pid(proc.pid)
 
 
@@ -209,7 +225,8 @@ def _stream_and_play(resp, cache_path, volume):
     kill_previous_sound()
     vol_pct = str(int(float(volume) * 100))
     player = subprocess.Popen(
-        ["ffplay", "-nodisp", "-autoexit", "-volume", vol_pct, "-i", "pipe:0"],
+        ["ffplay", "-nodisp", "-autoexit", "-volume", vol_pct,
+         "-af", _echo_filter(), "-i", "pipe:0"],
         stdin=subprocess.PIPE,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
