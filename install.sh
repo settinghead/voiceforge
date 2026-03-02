@@ -100,14 +100,11 @@ HOOK_CMD = '$INSTALL_DIR/sc-commander.sh'
 
 # Define all hook events and their config
 HOOKS = {
-    'SessionStart':       {'matcher': '', 'timeout': 10, 'async': False},
     'Stop':               {'matcher': '', 'timeout': 10, 'async': True},
     'Notification':       {'matcher': '', 'timeout': 10, 'async': True},
     'SessionEnd':         {'matcher': '', 'timeout': 10, 'async': True},
-    'SubagentStart':      {'matcher': '', 'timeout': 10, 'async': True},
     'UserPromptSubmit':   {'matcher': '', 'timeout': 10, 'async': True},
     'PermissionRequest':  {'matcher': '', 'timeout': 10, 'async': True},
-    'PostToolUseFailure': {'matcher': 'Bash', 'timeout': 10, 'async': True},
     'PreCompact':         {'matcher': '', 'timeout': 10, 'async': True},
 }
 

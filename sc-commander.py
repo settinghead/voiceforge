@@ -22,28 +22,18 @@ PID_FILE = os.path.join(SCRIPT_DIR, ".sound.pid")
 
 # Hook event name -> internal category
 EVENT_MAP = {
-    "SessionStart": "session.start",
     "Stop": "task.complete",
     "UserPromptSubmit": "task.acknowledge",
-    "PostToolUseFailure": "task.error",
     "PermissionRequest": "input.required",
     "PreCompact": "resource.limit",
     "Notification": "notification",
 }
 
 # Events where we call the LLM for a contextual phrase
-CONTEXTUAL_EVENTS = {"Stop", "PostToolUseFailure"}
+CONTEXTUAL_EVENTS = {"Stop"}
 
 # Fallback phrases when LLM is unavailable or for non-contextual events
 FALLBACK_PHRASES = {
-    "session.start": [
-        "All systems initialized",
-        "Adjutant activated",
-        "Command channel opened",
-        "Reactor online systems nominal",
-        "Operations ready and standing by",
-        "All subsystems checked",
-    ],
     "task.complete": [
         "Mission complete",
         "Objective secured",
@@ -58,14 +48,6 @@ FALLBACK_PHRASES = {
         "Operations initiated",
         "Command confirmed",
         "Directive understood",
-    ],
-    "task.error": [
-        "Error detected",
-        "Systems malfunction reported",
-        "Failure in subsystem detected",
-        "Critical error encountered",
-        "Anomaly detected",
-        "Operation failed",
     ],
     "input.required": [
         "Authorization required",
@@ -124,15 +106,6 @@ def extract_context(event_data):
             return f"Coding task completed. Assistant's summary: {msg[:300]}"
         return None
 
-    if event == "PostToolUseFailure":
-        tool = event_data.get("tool_name", "unknown")
-        error = event_data.get("error", "unknown error")
-        tool_input = event_data.get("tool_input", {})
-        cmd = ""
-        if isinstance(tool_input, dict):
-            cmd = tool_input.get("command", tool_input.get("description", ""))
-        return f"Tool '{tool}' failed. Command: {cmd[:100]}. Error: {error[:200]}"
-
     return None
 
 
@@ -142,7 +115,7 @@ def generate_phrase_llm(context, config):
     if not api_key:
         return None
 
-    model = config.get("openrouter_model", "liquid/lfm-2-24b-a2b")
+    model = config.get("openrouter_model", "qwen/qwen3.5-flash-02-23")
 
     payload = json.dumps({
         "model": model,
