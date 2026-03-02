@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Adjutant Voice Installer
-# Installs Adjutant Voice hooks into Claude Code
+# VoiceForge Installer
+# Installs VoiceForge hooks into Claude Code
 
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
-INSTALL_DIR="$HOME/.claude/hooks/adjutant-voice"
-SKILL_DIR="$HOME/.claude/skills/adjutant-voice-config"
+INSTALL_DIR="$HOME/.claude/hooks/voiceforge"
+SKILL_DIR="$HOME/.claude/skills/voiceforge-config"
 SETTINGS_FILE="$HOME/.claude/settings.json"
 
-echo "=== Adjutant Voice Installer ==="
+echo "=== VoiceForge Installer ==="
 echo ""
 
 # --- Prerequisites ---
 if [[ "$(uname)" != "Darwin" ]]; then
-    echo "WARNING: Adjutant Voice uses 'afplay' for audio playback (macOS only)."
+    echo "WARNING: VoiceForge uses 'afplay' for audio playback (macOS only)."
     echo "On Linux, edit config to use paplay/pw-play instead."
     echo ""
 fi
@@ -35,11 +35,11 @@ fi
 
 # --- Copy files ---
 mkdir -p "$INSTALL_DIR"
-cp "$REPO_DIR/adjutant-voice.py" "$INSTALL_DIR/"
-cp "$REPO_DIR/adjutant-voice.sh" "$INSTALL_DIR/"
+cp "$REPO_DIR/voiceforge.py" "$INSTALL_DIR/"
+cp "$REPO_DIR/voiceforge.sh" "$INSTALL_DIR/"
 cp "$REPO_DIR/config.default.json" "$INSTALL_DIR/"
 cp "$REPO_DIR/uninstall.sh" "$INSTALL_DIR/"
-chmod +x "$INSTALL_DIR/adjutant-voice.sh"
+chmod +x "$INSTALL_DIR/voiceforge.sh"
 chmod +x "$INSTALL_DIR/uninstall.sh"
 
 echo "  Copied core files to $INSTALL_DIR"
@@ -82,8 +82,8 @@ echo "  Created cache directory"
 
 # --- Install skill ---
 mkdir -p "$SKILL_DIR"
-if [[ -d "$REPO_DIR/skills/adjutant-voice-config" ]]; then
-    cp "$REPO_DIR/skills/adjutant-voice-config/SKILL.md" "$SKILL_DIR/"
+if [[ -d "$REPO_DIR/skills/voiceforge-config" ]]; then
+    cp "$REPO_DIR/skills/voiceforge-config/SKILL.md" "$SKILL_DIR/"
     echo "  Installed skill to $SKILL_DIR"
 fi
 
@@ -96,7 +96,7 @@ fi
 python3 -c "
 import json, sys
 
-HOOK_CMD = '$INSTALL_DIR/adjutant-voice.sh'
+HOOK_CMD = '$INSTALL_DIR/voiceforge.sh'
 
 # Define all hook events and their config
 HOOKS = {
@@ -131,12 +131,12 @@ for event, cfg in HOOKS.items():
     if event not in settings['hooks']:
         settings['hooks'][event] = []
 
-    # Remove any existing adjutant-voice hooks for this event
+    # Remove any existing voiceforge hooks for this event
     settings['hooks'][event] = [
         block for block in settings['hooks'][event]
         if not any(
-            h.get('command', '').endswith('adjutant-voice/adjutant-voice.sh')
-            or 'adjutant-voice' in h.get('command', '')
+            h.get('command', '').endswith('voiceforge/voiceforge.sh')
+            or 'voiceforge' in h.get('command', '')
             for h in block.get('hooks', [])
         )
     ]
@@ -158,7 +158,7 @@ if curl -s --connect-timeout 2 "http://localhost:8004/health" &>/dev/null || \
     echo "  Chatterbox TTS server detected at localhost:8004"
 else
     echo "  WARNING: Chatterbox TTS server not detected at localhost:8004"
-    echo "  Adjutant Voice will use fallback phrases but cannot generate speech."
+    echo "  VoiceForge will use fallback phrases but cannot generate speech."
     echo "  See README.md for Chatterbox setup instructions."
 fi
 
@@ -171,6 +171,6 @@ echo "  1. Edit $INSTALL_DIR/config.json"
 echo "     - Set your OpenRouter API key"
 echo "     - Set your voice WAV file name"
 echo "  2. Start Chatterbox TTS server (see README.md)"
-echo "  3. Start a new Claude Code session to hear Adjutant Voice!"
+echo "  3. Start a new Claude Code session to hear VoiceForge!"
 echo ""
 echo "To uninstall: bash $INSTALL_DIR/uninstall.sh"

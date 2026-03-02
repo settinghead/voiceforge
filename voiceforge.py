@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Adjutant Voice - StarCraft-style voice notifications for Claude Code.
+"""VoiceForge - Game character voice notifications for Claude Code.
 
 Generates contextual 1-6 word phrases via OpenRouter LLM,
 speaks them through a local Chatterbox TTS server.
@@ -71,8 +71,8 @@ FALLBACK_PHRASES = {
 }
 
 SYSTEM_PROMPT = (
-    "You are a StarCraft Terran adjutant (military AI). "
-    "Respond with ONLY 2-8 words as a terse military status report. "
+    "You are a terse AI assistant. "
+    "Respond with ONLY 2-8 words as a brief status report. "
     "The phrase MUST end with a past participle or adjective (e.g. complete, deployed, fixed, detected, adjusted, built, failed, nominal, operational, required). "
     "Before the final word, state WHAT was done AND WHY it exists — the purpose or goal the item serves. "
     "Use patterns like 'purpose-noun item-noun adjective' or 'item for purpose adjective'. "
@@ -167,7 +167,7 @@ def _save_pid(pid):
 
 
 def _echo_filter():
-    """Return an ffplay/ffmpeg aecho filter string for StarCraft-style reverb."""
+    """Return an ffplay/ffmpeg aecho filter string for sci-fi style reverb."""
     # Short multi-tap echo: two taps at 40ms and 75ms with moderate decay
     return "aecho=0.8:0.88:40|75:0.4|0.25"
 

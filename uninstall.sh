@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Adjutant Voice Uninstaller
+# VoiceForge Uninstaller
 
-INSTALL_DIR="$HOME/.claude/hooks/adjutant-voice"
-SKILL_DIR="$HOME/.claude/skills/adjutant-voice-config"
+INSTALL_DIR="$HOME/.claude/hooks/voiceforge"
+SKILL_DIR="$HOME/.claude/skills/voiceforge-config"
 SETTINGS_FILE="$HOME/.claude/settings.json"
 
-echo "=== Adjutant Voice Uninstaller ==="
+echo "=== VoiceForge Uninstaller ==="
 echo ""
 
 # --- Remove hooks from settings.json ---
@@ -27,7 +27,7 @@ for event, blocks in hooks.items():
     blocks[:] = [
         block for block in blocks
         if not any(
-            'adjutant-voice' in h.get('command', '')
+            'voiceforge' in h.get('command', '')
             for h in block.get('hooks', [])
         )
     ]
@@ -71,4 +71,4 @@ fi
 
 echo ""
 echo "=== Uninstall Complete ==="
-echo "Adjutant Voice has been removed from Claude Code."
+echo "VoiceForge has been removed from Claude Code."

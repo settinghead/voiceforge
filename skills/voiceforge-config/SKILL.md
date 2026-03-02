@@ -1,16 +1,16 @@
 ---
-name: adjutant-voice-config
-description: View and edit Adjutant Voice configuration (voice notifications)
+name: voiceforge-config
+description: View and edit VoiceForge configuration (voice notifications)
 user_invocable: true
 ---
 
-# Adjutant Voice Configuration
+# VoiceForge Configuration
 
-Adjutant Voice generates StarCraft-style voice notifications for Claude Code hook events.
+VoiceForge generates character voice notifications for Claude Code hook events.
 
 ## Config File Location
 
-`~/.claude/hooks/adjutant-voice/config.json`
+`~/.claude/hooks/voiceforge/config.json`
 
 ## Configuration Fields
 
@@ -38,11 +38,11 @@ Adjutant Voice generates StarCraft-style voice notifications for Claude Code hoo
 
 ## Instructions
 
-When the user asks to configure Adjutant Voice:
+When the user asks to configure VoiceForge:
 
 1. **Read** the current config:
    ```
-   Read ~/.claude/hooks/adjutant-voice/config.json
+   Read ~/.claude/hooks/voiceforge/config.json
    ```
 
 2. **Edit** values using the Edit tool on that file.
@@ -54,7 +54,7 @@ When the user asks to configure Adjutant Voice:
 To clear the TTS audio cache (e.g., after changing voice):
 
 ```bash
-rm -f ~/.claude/hooks/adjutant-voice/cache/*.wav
+rm -f ~/.claude/hooks/voiceforge/cache/*.wav
 ```
 
-This forces Adjutant Voice to regenerate audio on next use.
+This forces VoiceForge to regenerate audio on next use.
