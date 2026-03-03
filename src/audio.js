@@ -166,7 +166,7 @@ async function processQueue() {
 
 // --- TTS download ---
 
-function downloadToCache(phrase, cachePath, config, voicePath, ttsParams) {
+function downloadChatterbox(phrase, cachePath, config, voicePath, ttsParams) {
   return new Promise((resolve) => {
     const chatterboxUrl = config.chatterbox_url || "http://localhost:8004";
     const endpoint = `${chatterboxUrl}/tts`;
@@ -227,6 +227,62 @@ function downloadToCache(phrase, cachePath, config, voicePath, ttsParams) {
   });
 }
 
+function downloadQwen(phrase, cachePath, config, packId) {
+  return new Promise((resolve) => {
+    const qwenUrl = config.qwen_tts_url || "http://localhost:8100";
+    const endpoint = `${qwenUrl}/tts`;
+
+    const payload = JSON.stringify({ text: phrase, pack_id: packId });
+
+    const url = new URL(endpoint);
+    const requestFn = url.protocol === "https:" ? httpsRequest : httpRequest;
+
+    const req = requestFn(
+      endpoint,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(payload),
+        },
+        timeout: 30000,
+      },
+      (res) => {
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          res.resume();
+          return resolve();
+        }
+        const chunks = [];
+        res.on("data", (chunk) => chunks.push(chunk));
+        res.on("end", () => {
+          try {
+            writeFileSync(cachePath, Buffer.concat(chunks));
+          } catch {
+            // ignore
+          }
+          resolve();
+        });
+        res.on("error", () => resolve());
+      },
+    );
+
+    req.on("error", () => resolve());
+    req.on("timeout", () => {
+      req.destroy();
+      resolve();
+    });
+    req.write(payload);
+    req.end();
+  });
+}
+
+function downloadToCache(phrase, cachePath, config, voicePath, ttsParams, packId) {
+  if (config.tts_backend === "qwen") {
+    return downloadQwen(phrase, cachePath, config, packId);
+  }
+  return downloadChatterbox(phrase, cachePath, config, voicePath, ttsParams);
+}
+
 // --- Post-processing ---
 
 function normalizeVolume(cachePath) {
@@ -272,8 +328,9 @@ export async function speakPhrase(phrase, config, pack) {
   mkdirSync(packCacheDir, { recursive: true });
 
   const ttsParams = pack ? pack.tts_params : null;
+  const backend = config.tts_backend || "chatterbox";
   const cacheKey = createHash("md5")
-    .update(phrase.toLowerCase() + (ttsParams ? JSON.stringify(ttsParams) : ""))
+    .update(backend + ":" + phrase.toLowerCase() + (ttsParams ? JSON.stringify(ttsParams) : ""))
     .digest("hex");
   const cachePath = join(packCacheDir, `${cacheKey}.wav`);
   const volume = config.volume ?? 0.5;
@@ -287,7 +344,7 @@ export async function speakPhrase(phrase, config, pack) {
   if (existsSync(cachePath)) {
     touchFile(cachePath);
   } else {
-    await downloadToCache(phrase, cachePath, config, voicePath, ttsParams);
+    await downloadToCache(phrase, cachePath, config, voicePath, ttsParams, packId);
     if (!existsSync(cachePath)) return; // download failed
     if (postProcessCmd) postProcess(cachePath, postProcessCmd);
     if (customAudioFilter || echo) applyEcho(cachePath, customAudioFilter);

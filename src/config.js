@@ -70,6 +70,8 @@ const PROJECT_OVERRIDE_FIELDS = new Set([
   "collect_llm_data",
   "max_cache_entries",
   "prefix",
+  "tts_backend",
+  "qwen_tts_url",
 ]);
 
 /**
