@@ -111,6 +111,8 @@ export function loadPack(config) {
     voicePath,
     volumeOffsetDb: getVolumeOffsetDb(voicePath, packDir),
     tts_params: packData.tts_params || null,
+    audio_filter: packData.audio_filter || null,
+    post_process: packData.post_process || null,
     system_prompt: packData.system_prompt || null,
     fallback_phrases: packData.fallback_phrases || null,
   };

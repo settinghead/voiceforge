@@ -4,17 +4,19 @@ Voice packs for [Claude Code](https://docs.anthropic.com/en/docs/claude-code). A
 
 ## Voices
 
-| Voice | Source | Status |
-|-------|--------|--------|
-| **SC1 Adjutant** | StarCraft | Available |
-| **SC2 Adjutant** | StarCraft II | Available |
-| **EVA** | Command & Conquer: Red Alert | Available |
-| **GLaDOS** | Portal | Planned |
-| **Cortana** | Halo | Planned |
-| **HEV Suit** | Half-Life | Planned |
-| **SHODAN** | System Shock | Planned |
-| **Deckard Cain** | Diablo | Planned |
-| **Kerrigan** | StarCraft | Planned |
+| Pack ID | Voice | Source | Status |
+|---------|-------|--------|--------|
+| `sc1-adjutant` | **SC1 Adjutant** | StarCraft | Available |
+| `sc2-adjutant` | **SC2 Adjutant** | StarCraft II | Available |
+| `red-alert-eva` | **EVA** | Command & Conquer: Red Alert | Available |
+| `sc1-kerrigan` | **SC1 Kerrigan** | StarCraft | Available |
+| `sc2-kerrigan` | **SC2 Kerrigan** | StarCraft II | Available |
+| `sc1-protoss-advisor` | **Protoss Advisor** | StarCraft | Available |
+| `ss1-shodan` | **SHODAN** | System Shock | Available |
+| | **GLaDOS** | Portal | Planned |
+| | **Cortana** | Halo | Planned |
+| | **HEV Suit** | Half-Life | Planned |
+| | **Deckard Cain** | Diablo | Planned |
 
 ```bash
 voiceforge voice    # interactive picker
@@ -202,6 +204,10 @@ bash ~/.claude/hooks/voiceforge/uninstall.sh
 ```
 
 This removes hooks from Claude Code settings and cleans up installed files. You'll be prompted to keep or remove your config and cached audio.
+
+## Credits
+
+- **Protoss Advisor** voice pack inspired by [openclaw/protoss-voice](https://playbooks.com/skills/openclaw/skills/protoss-voice)
 
 ## License
 

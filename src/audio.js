@@ -3,6 +3,7 @@ import {
   writeFileSync,
   readdirSync,
   unlinkSync,
+  renameSync,
   mkdirSync,
   existsSync,
   statSync,
@@ -10,7 +11,7 @@ import {
 } from "fs";
 import { join } from "path";
 import { createHash } from "crypto";
-import { spawn } from "child_process";
+import { spawn, execSync } from "child_process";
 import { request as httpsRequest } from "https";
 import { request as httpRequest } from "http";
 import { CACHE_DIR, QUEUE_DIR, LOCK_FILE } from "./paths.js";
@@ -91,10 +92,10 @@ function releaseLock() {
   }
 }
 
-function enqueue(cachePath, volume, echo, volumeOffsetDb) {
+function enqueue(cachePath, volume, echo, volumeOffsetDb, customAudioFilter) {
   mkdirSync(QUEUE_DIR, { recursive: true });
   const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.json`;
-  writeFileSync(join(QUEUE_DIR, filename), JSON.stringify({ cachePath, volume, echo, volumeOffsetDb }));
+  writeFileSync(join(QUEUE_DIR, filename), JSON.stringify({ cachePath, volume, echo, volumeOffsetDb, customAudioFilter }));
 }
 
 function getNextEntry() {
@@ -110,19 +111,21 @@ function getNextEntry() {
 
 // --- Playback ---
 
-function playFile(cachePath, volume, echo, volumeOffsetDb) {
+function playFile(cachePath, volume, echo, volumeOffsetDb, customAudioFilter) {
   return new Promise((resolve) => {
     if (!existsSync(cachePath)) return resolve();
     const volPct = String(Math.round(parseFloat(volume) * 100));
     try {
       const ffplayArgs = ["-nodisp", "-autoexit", "-volume", volPct];
 
-      // Build audio filter chain: volume compensation + optional echo
+      // Build audio filter chain: volume compensation + custom/default echo
       const filters = [];
       if (volumeOffsetDb && volumeOffsetDb !== 0) {
         filters.push(`volume=${volumeOffsetDb}dB`);
       }
-      if (echo) {
+      if (customAudioFilter) {
+        filters.push(customAudioFilter);
+      } else if (echo) {
         filters.push(audioFilter());
       }
       if (filters.length > 0) {
@@ -159,7 +162,7 @@ async function processQueue() {
           readFileSync(entryPath, "utf-8"),
         );
         unlinkSync(entryPath);
-        await playFile(entry_data.cachePath, entry_data.volume, entry_data.echo !== false, entry_data.volumeOffsetDb || 0);
+        await playFile(entry_data.cachePath, entry_data.volume, entry_data.echo !== false, entry_data.volumeOffsetDb || 0, entry_data.customAudioFilter || null);
       } catch {
         try {
           unlinkSync(entryPath);
@@ -236,6 +239,25 @@ function downloadToCache(phrase, cachePath, config, voicePath, ttsParams) {
   });
 }
 
+// --- Post-processing ---
+
+function postProcess(cachePath, command) {
+  if (!command || !existsSync(cachePath)) return;
+  const tmpOut = cachePath + ".tmp.wav";
+  // Replace $INPUT and $OUTPUT placeholders in command
+  const cmd = command.replace(/\$INPUT/g, cachePath).replace(/\$OUTPUT/g, tmpOut);
+  try {
+    execSync(cmd, { timeout: 15000, stdio: "ignore" });
+    if (existsSync(tmpOut)) {
+      unlinkSync(cachePath);
+      renameSync(tmpOut, cachePath);
+    }
+  } catch {
+    // Post-processing failed — use raw TTS output
+    try { unlinkSync(tmpOut); } catch { /* ignore */ }
+  }
+}
+
 // --- Public API ---
 
 export async function speakPhrase(phrase, config, pack) {
@@ -253,6 +275,8 @@ export async function speakPhrase(phrase, config, pack) {
   const echo = pack ? pack.echo !== false : true;
   const voicePath = (pack && pack.voicePath) || config.voice || "default.wav";
   const volumeOffsetDb = (pack && pack.volumeOffsetDb) || 0;
+  const customAudioFilter = (pack && pack.audio_filter) || null;
+  const postProcessCmd = (pack && pack.post_process) || null;
 
   // Ensure audio is in cache
   if (existsSync(cachePath)) {
@@ -260,10 +284,11 @@ export async function speakPhrase(phrase, config, pack) {
   } else {
     await downloadToCache(phrase, cachePath, config, voicePath, ttsParams);
     if (!existsSync(cachePath)) return; // download failed
+    if (postProcessCmd) postProcess(cachePath, postProcessCmd);
     evictCache(packCacheDir, maxCache);
   }
 
   // Enqueue and try to become the player
-  enqueue(cachePath, volume, echo, volumeOffsetDb);
+  enqueue(cachePath, volume, echo, volumeOffsetDb, customAudioFilter);
   await processQueue();
 }
