@@ -1,128 +1,138 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
+import {
+  readFileSync,
+  writeFileSync,
+  readdirSync,
+  unlinkSync,
+  mkdirSync,
+  existsSync,
+} from "fs";
 import { join } from "path";
 import { createHash } from "crypto";
 import { spawn } from "child_process";
 import { request as httpsRequest } from "https";
 import { request as httpRequest } from "http";
-import { CACHE_DIR, PID_FILE } from "./paths.js";
-
-function killPreviousSound() {
-  try {
-    const pid = parseInt(readFileSync(PID_FILE, "utf-8").trim(), 10);
-    process.kill(pid, "SIGTERM");
-  } catch {
-    // ignore
-  }
-}
-
-function savePid(pid) {
-  try {
-    writeFileSync(PID_FILE, String(pid));
-  } catch {
-    // ignore
-  }
-}
+import { CACHE_DIR, QUEUE_DIR, LOCK_FILE } from "./paths.js";
 
 function echoFilter() {
   // Short multi-tap echo: two taps at 40ms and 75ms with moderate decay
   return "aecho=0.8:0.88:40|75:0.4|0.25";
 }
 
-function playCached(cachePath, volume) {
-  killPreviousSound();
-  const volPct = String(Math.round(parseFloat(volume) * 100));
+// --- File-based playback queue ---
+
+function acquireLock() {
+  mkdirSync(QUEUE_DIR, { recursive: true });
   try {
-    const proc = spawn(
-      "ffplay",
-      ["-nodisp", "-autoexit", "-volume", volPct, "-af", echoFilter(), cachePath],
-      { stdio: ["ignore", "ignore", "ignore"] },
-    );
-    proc.on("error", () => {
-      // ffplay not available — fall back to afplay (no echo)
-      const fallback = spawn("afplay", ["-v", String(volume), cachePath], {
-        stdio: ["ignore", "ignore", "ignore"],
-      });
-      fallback.on("error", () => {});
-      savePid(fallback.pid);
-    });
-    savePid(proc.pid);
+    writeFileSync(LOCK_FILE, String(process.pid), { flag: "wx" });
+    return true;
+  } catch {
+    // Lock exists — check if holder is still alive
+    try {
+      const pid = parseInt(readFileSync(LOCK_FILE, "utf-8").trim(), 10);
+      process.kill(pid, 0); // throws if dead
+      return false; // holder alive, let it drain the queue
+    } catch {
+      // Stale lock — reclaim
+      try {
+        unlinkSync(LOCK_FILE);
+        writeFileSync(LOCK_FILE, String(process.pid), { flag: "wx" });
+        return true;
+      } catch {
+        return false;
+      }
+    }
+  }
+}
+
+function releaseLock() {
+  try {
+    unlinkSync(LOCK_FILE);
   } catch {
     // ignore
   }
 }
 
-function streamAndPlay(res, cachePath, volume) {
+function enqueue(cachePath, volume) {
+  mkdirSync(QUEUE_DIR, { recursive: true });
+  const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.json`;
+  writeFileSync(join(QUEUE_DIR, filename), JSON.stringify({ cachePath, volume }));
+}
+
+function getNextEntry() {
+  try {
+    const files = readdirSync(QUEUE_DIR)
+      .filter((f) => f.endsWith(".json"))
+      .sort();
+    return files.length > 0 ? files[0] : null;
+  } catch {
+    return null;
+  }
+}
+
+// --- Playback ---
+
+function playFile(cachePath, volume) {
   return new Promise((resolve) => {
-    killPreviousSound();
+    if (!existsSync(cachePath)) return resolve();
     const volPct = String(Math.round(parseFloat(volume) * 100));
-
-    let player;
     try {
-      player = spawn(
+      const proc = spawn(
         "ffplay",
-        ["-nodisp", "-autoexit", "-volume", volPct, "-af", echoFilter(), "-i", "pipe:0"],
-        { stdio: ["pipe", "ignore", "ignore"] },
+        [
+          "-nodisp",
+          "-autoexit",
+          "-volume",
+          volPct,
+          "-af",
+          echoFilter(),
+          cachePath,
+        ],
+        { stdio: ["ignore", "ignore", "ignore"] },
       );
+      proc.on("error", () => {
+        // ffplay not available — fall back to afplay (no echo)
+        const fallback = spawn("afplay", ["-v", String(volume), cachePath], {
+          stdio: ["ignore", "ignore", "ignore"],
+        });
+        fallback.on("error", () => resolve());
+        fallback.on("close", () => resolve());
+      });
+      proc.on("close", () => resolve());
     } catch {
-      resolve(false);
-      return;
+      resolve();
     }
-
-    player.on("error", () => resolve(false));
-    savePid(player.pid);
-
-    // Collect chunks for cache file while piping to player
-    const chunks = [];
-    res.on("data", (chunk) => {
-      chunks.push(chunk);
-      try {
-        player.stdin.write(chunk);
-      } catch {
-        // broken pipe
-      }
-    });
-
-    res.on("end", () => {
-      try {
-        player.stdin.end();
-      } catch {
-        // ignore
-      }
-      // Write cache file
-      try {
-        writeFileSync(cachePath, Buffer.concat(chunks));
-      } catch {
-        // ignore
-      }
-      resolve(true);
-    });
-
-    res.on("error", () => {
-      try {
-        player.stdin.end();
-      } catch {
-        // ignore
-      }
-      resolve(false);
-    });
   });
 }
 
-export function speakPhrase(phrase, config) {
-  return new Promise((resolve) => {
-    mkdirSync(CACHE_DIR, { recursive: true });
-
-    const cacheKey = createHash("md5").update(phrase.toLowerCase()).digest("hex");
-    const cachePath = join(CACHE_DIR, `${cacheKey}.wav`);
-    const volume = config.volume ?? 0.5;
-
-    // Cached: play immediately
-    if (existsSync(cachePath)) {
-      playCached(cachePath, volume);
-      return resolve();
+async function processQueue() {
+  if (!acquireLock()) return;
+  try {
+    let entry;
+    while ((entry = getNextEntry())) {
+      const entryPath = join(QUEUE_DIR, entry);
+      try {
+        const { cachePath, volume } = JSON.parse(
+          readFileSync(entryPath, "utf-8"),
+        );
+        unlinkSync(entryPath);
+        await playFile(cachePath, volume);
+      } catch {
+        try {
+          unlinkSync(entryPath);
+        } catch {
+          // ignore
+        }
+      }
     }
+  } finally {
+    releaseLock();
+  }
+}
 
-    // Fetch from TTS server
+// --- TTS download ---
+
+function downloadToCache(phrase, cachePath, config) {
+  return new Promise((resolve) => {
     const chatterboxUrl = config.chatterbox_url || "http://localhost:8004";
     const endpoint = `${chatterboxUrl}/v1/audio/speech`;
 
@@ -146,22 +156,22 @@ export function speakPhrase(phrase, config) {
         },
         timeout: 8000,
       },
-      async (res) => {
+      (res) => {
         if (res.statusCode < 200 || res.statusCode >= 300) {
           res.resume();
           return resolve();
         }
-
-        // Try streaming playback via ffplay
-        const streamed = await streamAndPlay(res, cachePath, volume);
-        if (!streamed) {
-          // ffplay not available — fall back to full download + afplay
-          // streamAndPlay already wrote the cache if data arrived
-          if (existsSync(cachePath)) {
-            playCached(cachePath, volume);
+        const chunks = [];
+        res.on("data", (chunk) => chunks.push(chunk));
+        res.on("end", () => {
+          try {
+            writeFileSync(cachePath, Buffer.concat(chunks));
+          } catch {
+            // ignore
           }
-        }
-        resolve();
+          resolve();
+        });
+        res.on("error", () => resolve());
       },
     );
 
@@ -173,4 +183,26 @@ export function speakPhrase(phrase, config) {
     req.write(payload);
     req.end();
   });
+}
+
+// --- Public API ---
+
+export async function speakPhrase(phrase, config) {
+  mkdirSync(CACHE_DIR, { recursive: true });
+
+  const cacheKey = createHash("md5")
+    .update(phrase.toLowerCase())
+    .digest("hex");
+  const cachePath = join(CACHE_DIR, `${cacheKey}.wav`);
+  const volume = config.volume ?? 0.5;
+
+  // Ensure audio is in cache
+  if (!existsSync(cachePath)) {
+    await downloadToCache(phrase, cachePath, config);
+  }
+  if (!existsSync(cachePath)) return; // download failed
+
+  // Enqueue and try to become the player
+  enqueue(cachePath, volume);
+  await processQueue();
 }
