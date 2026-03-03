@@ -4,5 +4,3 @@ llm_collect/
 .sound.pid
 node_modules/
 *.log
-packs/*/voice.wav
-packs/*/.volume
