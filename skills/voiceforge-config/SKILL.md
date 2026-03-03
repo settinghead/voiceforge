@@ -20,7 +20,8 @@ VoiceForge generates character voice notifications for Claude Code hook events.
 | `openrouter_api_key` | string | `""` | OpenRouter API key for LLM phrase generation |
 | `openrouter_model` | string | `"google/gemini-2.0-flash-001"` | LLM model for generating contextual phrases |
 | `chatterbox_url` | string | `"http://localhost:8004"` | Chatterbox TTS server URL |
-| `voice` | string | `"default.wav"` | Voice reference WAV file name (in Chatterbox voices dir) |
+| `active_pack` | string | `"sc2-adjutant"` | Active voice pack ID (see `packs/` directory) |
+| `voice` | string | `"default.wav"` | Legacy voice reference WAV file name (overridden by pack) |
 | `volume` | number | `1.0` | Playback volume (0.0 to 1.0) |
 | `categories` | object | see below | Per-category enable/disable |
 
@@ -48,6 +49,16 @@ When the user asks to configure VoiceForge:
 2. **Edit** values using the Edit tool on that file.
 
 3. Changes take effect on the next hook event (no restart needed).
+
+## Voice Pack Switching
+
+Switch voice packs using the CLI:
+```bash
+voiceforge pack list              # List available packs
+voiceforge pack use <pack-id>     # Switch active pack
+```
+
+Or edit `active_pack` in config.json directly. Available packs: `sc1-adjutant`, `sc2-adjutant`, `red-alert-eva`.
 
 ## Cache Management
 

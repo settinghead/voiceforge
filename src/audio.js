@@ -17,13 +17,13 @@ import { CACHE_DIR, QUEUE_DIR, LOCK_FILE } from "./paths.js";
 
 const DEFAULT_MAX_CACHE = 150;
 
-function evictCache(maxEntries) {
+function evictCache(cacheDir, maxEntries) {
   let files;
   try {
-    files = readdirSync(CACHE_DIR)
+    files = readdirSync(cacheDir)
       .filter((f) => f.endsWith(".wav"))
       .map((f) => {
-        const p = join(CACHE_DIR, f);
+        const p = join(cacheDir, f);
         return { path: p, atime: statSync(p).atimeMs };
       });
   } catch {
@@ -91,10 +91,10 @@ function releaseLock() {
   }
 }
 
-function enqueue(cachePath, volume) {
+function enqueue(cachePath, volume, echo) {
   mkdirSync(QUEUE_DIR, { recursive: true });
   const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.json`;
-  writeFileSync(join(QUEUE_DIR, filename), JSON.stringify({ cachePath, volume }));
+  writeFileSync(join(QUEUE_DIR, filename), JSON.stringify({ cachePath, volume, echo }));
 }
 
 function getNextEntry() {
@@ -110,24 +110,20 @@ function getNextEntry() {
 
 // --- Playback ---
 
-function playFile(cachePath, volume) {
+function playFile(cachePath, volume, echo) {
   return new Promise((resolve) => {
     if (!existsSync(cachePath)) return resolve();
     const volPct = String(Math.round(parseFloat(volume) * 100));
     try {
-      const proc = spawn(
-        "ffplay",
-        [
-          "-nodisp",
-          "-autoexit",
-          "-volume",
-          volPct,
-          "-af",
-          audioFilter(),
-          cachePath,
-        ],
-        { stdio: ["ignore", "ignore", "ignore"] },
-      );
+      const ffplayArgs = ["-nodisp", "-autoexit", "-volume", volPct];
+      if (echo) {
+        ffplayArgs.push("-af", audioFilter());
+      }
+      ffplayArgs.push(cachePath);
+
+      const proc = spawn("ffplay", ffplayArgs, {
+        stdio: ["ignore", "ignore", "ignore"],
+      });
       proc.on("error", () => {
         // ffplay not available — fall back to afplay (no echo)
         const fallback = spawn("afplay", ["-v", String(volume), cachePath], {
@@ -150,11 +146,11 @@ async function processQueue() {
     while ((entry = getNextEntry())) {
       const entryPath = join(QUEUE_DIR, entry);
       try {
-        const { cachePath, volume } = JSON.parse(
+        const entry_data = JSON.parse(
           readFileSync(entryPath, "utf-8"),
         );
         unlinkSync(entryPath);
-        await playFile(cachePath, volume);
+        await playFile(entry_data.cachePath, entry_data.volume, entry_data.echo !== false);
       } catch {
         try {
           unlinkSync(entryPath);
@@ -170,14 +166,14 @@ async function processQueue() {
 
 // --- TTS download ---
 
-function downloadToCache(phrase, cachePath, config) {
+function downloadToCache(phrase, cachePath, config, voicePath) {
   return new Promise((resolve) => {
     const chatterboxUrl = config.chatterbox_url || "http://localhost:8004";
     const endpoint = `${chatterboxUrl}/v1/audio/speech`;
 
     const payload = JSON.stringify({
       input: phrase,
-      voice: config.voice || "default.wav",
+      voice: voicePath || config.voice || "default.wav",
       model: "chatterbox-turbo",
       response_format: "wav",
     });
@@ -226,26 +222,30 @@ function downloadToCache(phrase, cachePath, config) {
 
 // --- Public API ---
 
-export async function speakPhrase(phrase, config) {
-  mkdirSync(CACHE_DIR, { recursive: true });
+export async function speakPhrase(phrase, config, pack) {
+  const packId = (pack && pack.id) || "_default";
+  const packCacheDir = join(CACHE_DIR, packId);
+  mkdirSync(packCacheDir, { recursive: true });
 
   const cacheKey = createHash("md5")
     .update(phrase.toLowerCase())
     .digest("hex");
-  const cachePath = join(CACHE_DIR, `${cacheKey}.wav`);
+  const cachePath = join(packCacheDir, `${cacheKey}.wav`);
   const volume = config.volume ?? 0.5;
   const maxCache = config.max_cache_entries ?? DEFAULT_MAX_CACHE;
+  const echo = pack ? pack.echo !== false : true;
+  const voicePath = (pack && pack.voicePath) || config.voice || "default.wav";
 
   // Ensure audio is in cache
   if (existsSync(cachePath)) {
     touchFile(cachePath);
   } else {
-    await downloadToCache(phrase, cachePath, config);
+    await downloadToCache(phrase, cachePath, config, voicePath);
     if (!existsSync(cachePath)) return; // download failed
-    evictCache(maxCache);
+    evictCache(packCacheDir, maxCache);
   }
 
   // Enqueue and try to become the player
-  enqueue(cachePath, volume);
+  enqueue(cachePath, volume, echo);
   await processQueue();
 }

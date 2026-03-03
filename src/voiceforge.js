@@ -11,6 +11,7 @@ import { appendFileSync, mkdirSync } from "fs";
 import { loadConfig, EVENT_MAP, CONTEXTUAL_EVENTS, FALLBACK_PHRASES } from "./config.js";
 import { extractContext, generatePhraseLlm } from "./llm.js";
 import { speakPhrase } from "./audio.js";
+import { loadPack } from "./packs.js";
 import { STATE_DIR, LOG_FILE } from "./paths.js";
 
 function logFallback(eventName, reason, detail) {
@@ -51,6 +52,9 @@ async function main() {
   const categories = config.categories || {};
   if (categories[category] === false) return;
 
+  // Load active voice pack
+  const pack = loadPack(config);
+
   // Extract project name from cwd
   const cwd = eventData.cwd || "";
   const projectName = cwd ? basename(cwd) : "";
@@ -62,7 +66,7 @@ async function main() {
   if (CONTEXTUAL_EVENTS.has(eventName)) {
     const context = extractContext(eventData);
     if (context) {
-      const result = await generatePhraseLlm(context, config);
+      const result = await generatePhraseLlm(context, config, pack.system_prompt);
       phrase = result.phrase;
       fallbackReason = result.fallbackReason;
       fallbackDetail = result.detail || null;
@@ -71,12 +75,13 @@ async function main() {
     }
   }
 
-  // Fall back to predefined phrases
+  // Fall back to predefined phrases (pack overrides defaults)
   if (!phrase) {
     if (fallbackReason) {
       logFallback(eventName, fallbackReason, fallbackDetail);
     }
-    const phrases = FALLBACK_PHRASES[category] || ["Standing by"];
+    const fallbackSource = pack.fallback_phrases || FALLBACK_PHRASES;
+    const phrases = fallbackSource[category] || ["Standing by"];
     phrase = phrases[Math.floor(Math.random() * phrases.length)];
   }
 
@@ -85,7 +90,7 @@ async function main() {
     phrase = `${projectName}, ${phrase}`;
   }
 
-  await speakPhrase(phrase, config);
+  await speakPhrase(phrase, config, pack);
 }
 
 main();

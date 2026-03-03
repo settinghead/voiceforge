@@ -1,0 +1,7 @@
+{
+  "name": "StarCraft 2 Adjutant",
+  "voice": "voice.wav",
+  "echo": true,
+  "system_prompt": null,
+  "fallback_phrases": null
+}

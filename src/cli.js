@@ -3,9 +3,11 @@
 import { readFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
+import select from "@inquirer/select";
 import { loadConfig, saveConfig, FALLBACK_PHRASES } from "./config.js";
 import { generatePhraseLlm } from "./llm.js";
 import { speakPhrase } from "./audio.js";
+import { loadPack, listPacks } from "./packs.js";
 import { formatCost, resetUsage } from "./cost.js";
 import { CONFIG_PATH } from "./paths.js";
 
@@ -20,6 +22,10 @@ Usage:
   voiceforge config show         Show current configuration
   voiceforge config set <k> <v>  Set a config value (supports categories.X dot notation)
   voiceforge config path         Print config file path
+  voiceforge voice               Interactive voice pack picker
+  voiceforge pack list           List available voice packs
+  voiceforge pack show           Show active pack details
+  voiceforge pack use <pack-id>  Switch active voice pack
   voiceforge test "<text>"       Run full pipeline: LLM -> TTS -> audio playback
   voiceforge cost                Show accumulated token usage and estimated cost
   voiceforge cost reset          Clear the usage log
@@ -78,12 +84,14 @@ async function testPipeline(text) {
   }
 
   const config = loadConfig();
+  const pack = loadPack(config);
 
   console.log(`Input: ${text}`);
+  console.log(`Pack: ${pack.name} (${pack.id}), echo: ${pack.echo !== false}`);
   console.log("Generating phrase via LLM...");
 
   const context = `Coding task completed. Assistant's summary: ${text}`;
-  const result = await generatePhraseLlm(context, config);
+  const result = await generatePhraseLlm(context, config, pack.system_prompt);
 
   let phrase;
   if (result.phrase) {
@@ -98,7 +106,7 @@ async function testPipeline(text) {
   }
 
   console.log("Sending to TTS...");
-  await speakPhrase(phrase, config);
+  await speakPhrase(phrase, config, pack);
   console.log("Done.");
 }
 
@@ -109,6 +117,77 @@ async function showCost() {
 function costReset() {
   resetUsage();
   console.log("Usage log cleared.");
+}
+
+function packList() {
+  const packs = listPacks();
+  const config = loadConfig();
+  const active = config.active_pack || "";
+  if (packs.length === 0) {
+    console.log("No voice packs found.");
+    return;
+  }
+  for (const p of packs) {
+    const marker = p.id === active ? " (active)" : "";
+    console.log(`  ${p.id} — ${p.name}${marker}`);
+  }
+}
+
+async function voicePick() {
+  const packs = listPacks();
+  if (packs.length === 0) {
+    console.log("No voice packs found.");
+    return;
+  }
+
+  const config = loadConfig();
+  const active = config.active_pack || "";
+
+  const choices = packs.map((p) => ({
+    name: p.id === active ? `${p.name} (active)` : p.name,
+    value: p.id,
+    description: p.id,
+  }));
+
+  const chosen = await select({
+    message: "Select a voice pack",
+    choices,
+    default: active || undefined,
+  });
+
+  if (chosen === active) {
+    console.log(`Already using: ${packs.find((p) => p.id === chosen).name}`);
+    return;
+  }
+
+  config.active_pack = chosen;
+  saveConfig(config);
+  const match = packs.find((p) => p.id === chosen);
+  console.log(`Switched to: ${match.name} (${chosen})`);
+}
+
+function packShow() {
+  const config = loadConfig();
+  const pack = loadPack(config);
+  console.log(JSON.stringify(pack, null, 2));
+}
+
+function packUse(packId) {
+  if (!packId) {
+    console.error("Usage: voiceforge pack use <pack-id>");
+    process.exit(1);
+  }
+  const packs = listPacks();
+  const match = packs.find((p) => p.id === packId);
+  if (!match) {
+    console.error(`Pack "${packId}" not found. Available packs:`);
+    for (const p of packs) console.error(`  ${p.id} — ${p.name}`);
+    process.exit(1);
+  }
+  const config = loadConfig();
+  config.active_pack = packId;
+  saveConfig(config);
+  console.log(`Switched to pack: ${match.name} (${packId})`);
 }
 
 // --- Main ---
@@ -126,6 +205,23 @@ function costReset() {
       } else {
         showConfig();
       }
+      break;
+
+    case "pack":
+      if (sub === "list" || sub === "ls") {
+        packList();
+      } else if (sub === "show") {
+        packShow();
+      } else if (sub === "use") {
+        packUse(args[2]);
+      } else {
+        packList();
+      }
+      break;
+
+    case "voice":
+    case "voices":
+      await voicePick();
       break;
 
     case "test":

@@ -44,6 +44,21 @@ chmod +x "$INSTALL_DIR/voiceforge.sh"
 chmod +x "$INSTALL_DIR/uninstall.sh"
 chmod +x "$INSTALL_DIR/src/voiceforge.js"
 
+# --- Copy packs ---
+if [[ -d "$REPO_DIR/packs" ]]; then
+    # Copy pack.json files (voice.wav files are user-provided, don't overwrite)
+    for pack_dir in "$REPO_DIR/packs"/*/; do
+        pack_name="$(basename "$pack_dir")"
+        mkdir -p "$INSTALL_DIR/packs/$pack_name"
+        cp "$pack_dir/pack.json" "$INSTALL_DIR/packs/$pack_name/" 2>/dev/null || true
+        # Copy voice.wav only if it exists in repo and not already installed
+        if [[ -f "$pack_dir/voice.wav" ]] && [[ ! -f "$INSTALL_DIR/packs/$pack_name/voice.wav" ]]; then
+            cp "$pack_dir/voice.wav" "$INSTALL_DIR/packs/$pack_name/"
+        fi
+    done
+    echo "  Copied voice packs to $INSTALL_DIR/packs"
+fi
+
 echo "  Copied core files to $INSTALL_DIR"
 
 # --- Config ---
@@ -67,6 +82,11 @@ for (const [k, v] of Object.entries(defaults)) {
             }
         }
     }
+}
+// Migrate voice -> active_pack if needed
+if (!('active_pack' in current) && 'voice' in current) {
+    current.active_pack = 'sc2-adjutant';
+    changed = true;
 }
 if (changed) {
     fs.writeFileSync('$INSTALL_DIR/config.json', JSON.stringify(current, null, 2) + '\n');

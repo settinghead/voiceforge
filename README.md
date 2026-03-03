@@ -127,11 +127,20 @@ Edit `~/.claude/hooks/voiceforge/config.json`:
 | `openrouter_api_key` | string | `""` | OpenRouter API key for contextual phrases |
 | `openrouter_model` | string | `"google/gemini-2.0-flash-001"` | LLM model ID |
 | `chatterbox_url` | string | `"http://localhost:8004"` | TTS server URL |
-| `voice` | string | `"default.wav"` | Voice reference WAV filename |
+| `active_pack` | string | `"sc-adjutant"` | Active voice pack ID (see `packs/`) |
+| `voice` | string | `"default.wav"` | Legacy voice reference WAV filename (overridden by pack) |
 | `volume` | number | `1.0` | Playback volume (0.0–1.0) |
 | `categories` | object | — | Enable/disable per event category |
 
 You can also use the `/voiceforge-config` slash command in Claude Code to manage configuration interactively.
+
+### CLI Pack Commands
+
+```bash
+voiceforge pack list              # List available voice packs
+voiceforge pack show              # Show active pack details
+voiceforge pack use <pack-id>     # Switch active voice pack
+```
 
 ## Event Categories
 
@@ -173,7 +182,7 @@ This removes hooks from Claude Code settings and cleans up installed files. You'
 
 | Status | Voice | Source | Notes |
 |--------|-------|--------|-------|
-| 🔜 | **EVA** | Command & Conquer | Military AI status updates |
+| ✅ | **EVA** | Command & Conquer | Military AI status updates |
 | 🔜 | **GLaDOS** | Portal | Passive-aggressive task commentary |
 | 🔜 | **Cortana** | Halo | AI companion tactical briefings |
 | 🔜 | **HEV Suit** | Half-Life | Pure status reports |

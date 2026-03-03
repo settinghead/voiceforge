@@ -9,5 +9,8 @@
   "scripts": {
     "start": "node src/voiceforge.js"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@inquirer/select": "^5.1.0"
+  }
 }

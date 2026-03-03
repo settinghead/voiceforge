@@ -3,7 +3,7 @@ import { join } from "path";
 import { request as httpsRequest } from "https";
 import { COLLECT_DIR, STATE_DIR, USAGE_FILE } from "./paths.js";
 
-const SYSTEM_PROMPT =
+export const DEFAULT_SYSTEM_PROMPT =
   "You are a terse AI assistant. " +
   "Respond with ONLY 2-8 words as a brief status report. " +
   "The phrase MUST end with a past participle or adjective (e.g. complete, deployed, fixed, detected, adjusted, built, failed, nominal, operational, required). " +
@@ -71,7 +71,7 @@ export function extractContext(eventData) {
   return null;
 }
 
-export function generatePhraseLlm(context, config) {
+export function generatePhraseLlm(context, config, systemPrompt) {
   return new Promise((resolve) => {
     const apiKey = config.openrouter_api_key || "";
     if (!apiKey) return resolve({ phrase: null, fallbackReason: "no_api_key" });
@@ -79,7 +79,7 @@ export function generatePhraseLlm(context, config) {
     const model = config.openrouter_model || "qwen/qwen3.5-flash-02-23";
 
     const messages = [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: systemPrompt || DEFAULT_SYSTEM_PROMPT },
       { role: "user", content: context },
     ];
 
