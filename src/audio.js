@@ -5,6 +5,8 @@ import {
   unlinkSync,
   mkdirSync,
   existsSync,
+  statSync,
+  utimesSync,
 } from "fs";
 import { join } from "path";
 import { createHash } from "crypto";
@@ -12,6 +14,42 @@ import { spawn } from "child_process";
 import { request as httpsRequest } from "https";
 import { request as httpRequest } from "http";
 import { CACHE_DIR, QUEUE_DIR, LOCK_FILE } from "./paths.js";
+
+const DEFAULT_MAX_CACHE = 150;
+
+function evictCache(maxEntries) {
+  let files;
+  try {
+    files = readdirSync(CACHE_DIR)
+      .filter((f) => f.endsWith(".wav"))
+      .map((f) => {
+        const p = join(CACHE_DIR, f);
+        return { path: p, atime: statSync(p).atimeMs };
+      });
+  } catch {
+    return;
+  }
+  if (files.length <= maxEntries) return;
+  // Sort oldest-accessed first, remove excess
+  files.sort((a, b) => a.atime - b.atime);
+  const toRemove = files.length - maxEntries;
+  for (let i = 0; i < toRemove; i++) {
+    try {
+      unlinkSync(files[i].path);
+    } catch {
+      // ignore
+    }
+  }
+}
+
+function touchFile(filePath) {
+  const now = new Date();
+  try {
+    utimesSync(filePath, now, statSync(filePath).mtime);
+  } catch {
+    // ignore
+  }
+}
 
 function audioFilter() {
   // Short multi-tap echo: two taps at 40ms and 75ms with moderate decay
@@ -196,12 +234,16 @@ export async function speakPhrase(phrase, config) {
     .digest("hex");
   const cachePath = join(CACHE_DIR, `${cacheKey}.wav`);
   const volume = config.volume ?? 0.5;
+  const maxCache = config.max_cache_entries ?? DEFAULT_MAX_CACHE;
 
   // Ensure audio is in cache
-  if (!existsSync(cachePath)) {
+  if (existsSync(cachePath)) {
+    touchFile(cachePath);
+  } else {
     await downloadToCache(phrase, cachePath, config);
+    if (!existsSync(cachePath)) return; // download failed
+    evictCache(maxCache);
   }
-  if (!existsSync(cachePath)) return; // download failed
 
   // Enqueue and try to become the player
   enqueue(cachePath, volume);
