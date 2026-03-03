@@ -83,9 +83,13 @@ async function main() {
     phrase = phrases[Math.floor(Math.random() * phrases.length)];
   }
 
-  // Prepend project name as prefix
-  if (projectName) {
-    phrase = `${projectName}. ${phrase}`;
+  // Prepend prefix (supports ${dirname} template variable)
+  const prefixTemplate = config.prefix !== undefined ? config.prefix : "${dirname}";
+  if (prefixTemplate !== "") {
+    const prefix = prefixTemplate.replace(/\$\{dirname\}/g, projectName);
+    if (prefix) {
+      phrase = `${prefix}; ${phrase}`;
+    }
   }
 
   await speakPhrase(phrase, config, pack);

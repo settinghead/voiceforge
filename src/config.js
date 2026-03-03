@@ -69,6 +69,7 @@ const PROJECT_OVERRIDE_FIELDS = new Set([
   "categories",
   "collect_llm_data",
   "max_cache_entries",
+  "prefix",
 ]);
 
 /**
