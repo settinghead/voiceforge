@@ -4,7 +4,7 @@
   "description": "Game character voice notifications for Claude Code",
   "type": "module",
   "bin": {
-    "voiceforge": "src/voiceforge.js"
+    "voiceforge": "src/cli.js"
   },
   "scripts": {
     "start": "node src/voiceforge.js"

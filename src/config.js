@@ -1,4 +1,4 @@
-import { readFileSync } from "fs";
+import { readFileSync, writeFileSync } from "fs";
 import { CONFIG_PATH } from "./paths.js";
 
 // Hook event name -> internal category
@@ -57,4 +57,8 @@ export function loadConfig() {
   } catch {
     return { enabled: true };
   }
+}
+
+export function saveConfig(config) {
+  writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2) + "\n");
 }

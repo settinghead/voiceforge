@@ -1,7 +1,7 @@
-import { writeFileSync, mkdirSync } from "fs";
+import { writeFileSync, appendFileSync, mkdirSync } from "fs";
 import { join } from "path";
 import { request as httpsRequest } from "https";
-import { COLLECT_DIR } from "./paths.js";
+import { COLLECT_DIR, STATE_DIR, USAGE_FILE } from "./paths.js";
 
 const SYSTEM_PROMPT =
   "You are a terse AI assistant. " +
@@ -36,6 +36,23 @@ function saveLlmPair(messages, responseText, model, config) {
     );
   } catch {
     // ignore
+  }
+}
+
+function logUsage(model, usage) {
+  if (!usage) return;
+  try {
+    mkdirSync(STATE_DIR, { recursive: true });
+    const record = JSON.stringify({
+      timestamp: new Date().toISOString(),
+      model,
+      prompt_tokens: usage.prompt_tokens || 0,
+      completion_tokens: usage.completion_tokens || 0,
+      total_tokens: usage.total_tokens || 0,
+    });
+    appendFileSync(USAGE_FILE, record + "\n");
+  } catch {
+    // best-effort
   }
 }
 
@@ -89,15 +106,17 @@ export function generatePhraseLlm(context, config) {
         res.on("end", () => {
           try {
             const result = JSON.parse(data);
+            const usage = result.usage || null;
+            logUsage(model, usage);
             let phrase = result.choices[0].message.content.trim();
             saveLlmPair(messages, phrase, model, config);
             // Clean up: remove quotes, punctuation, limit to 8 words
             phrase = phrase.replace(/^["'.,!;:]+|["'.,!;:]+$/g, "").trim();
             const words = phrase.split(/\s+/).slice(0, 8);
             if (words.length) {
-              resolve({ phrase: words.join(" "), fallbackReason: null });
+              resolve({ phrase: words.join(" "), fallbackReason: null, usage });
             } else {
-              resolve({ phrase: null, fallbackReason: "empty_response", detail: result });
+              resolve({ phrase: null, fallbackReason: "empty_response", detail: result, usage });
             }
           } catch (err) {
             resolve({ phrase: null, fallbackReason: "parse_error", detail: `${err.message}; body=${data.slice(0, 200)}` });
