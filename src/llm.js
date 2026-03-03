@@ -56,7 +56,7 @@ export function extractContext(eventData) {
   return null;
 }
 
-export function generatePhraseLlm(context, config, style) {
+export function generatePhraseLlm(context, config, style, llmTemperature) {
   return new Promise((resolve) => {
     const apiKey = config.openrouter_api_key || "";
     if (!apiKey) return resolve({ phrase: null, fallbackReason: "no_api_key" });
@@ -72,7 +72,7 @@ export function generatePhraseLlm(context, config, style) {
       model,
       messages,
       max_tokens: 30,
-      temperature: 0.9,
+      temperature: llmTemperature != null ? llmTemperature : 0.9,
     });
 
     const req = httpsRequest(

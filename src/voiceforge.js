@@ -66,7 +66,7 @@ async function main() {
   if (CONTEXTUAL_EVENTS.has(eventName)) {
     const context = extractContext(eventData);
     if (context) {
-      const result = await generatePhraseLlm(context, config, pack.style);
+      const result = await generatePhraseLlm(context, config, pack.style, pack.llm_temperature);
       phrase = result.phrase;
       fallbackReason = result.fallbackReason;
       fallbackDetail = result.detail || null;

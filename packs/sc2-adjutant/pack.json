@@ -6,6 +6,7 @@
     "exaggeration": 0.5,
     "cfg_weight": 0.5
   },
+  "llm_temperature": 0.6,
   "style": null,
   "fallback_phrases": null
 }
