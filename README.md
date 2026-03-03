@@ -24,22 +24,13 @@ voiceforge voice    # interactive picker
 
 ## How It Works
 
-```
-Claude Code Hook Event
-        |
-        v
-  voiceforge.sh      (bash entry point)
-        |
-        v
-  src/voiceforge.js  (core logic, Node.js)
-        |
-        +---> OpenRouter LLM  (generates contextual phrase)
-        |         |
-        |         v
-        +---> Chatterbox TTS  (text-to-speech, local server)
-        |         |
-        |         v
-        +---> ffplay / afplay  (audio playback)
+```mermaid
+flowchart TD
+    A[Claude Code Hook Event] --> B[voiceforge.sh<br><i>bash entry point</i>]
+    B --> C[src/voiceforge.js<br><i>core logic, Node.js</i>]
+    C --> D[OpenRouter LLM<br><i>generates contextual phrase</i>]
+    D --> E[Chatterbox TTS<br><i>text-to-speech, local server</i>]
+    E --> F[ffplay / afplay<br><i>audio playback</i>]
 ```
 
 1. Claude Code fires a hook event (task complete, error, etc.)
@@ -204,6 +195,10 @@ bash ~/.claude/hooks/voiceforge/uninstall.sh
 ```
 
 This removes hooks from Claude Code settings and cleans up installed files. You'll be prompted to keep or remove your config and cached audio.
+
+## Advanced
+
+See [Creating Voice Packs](docs/creating-voice-packs.md) for a guide on building your own character voice packs.
 
 ## Credits
 
