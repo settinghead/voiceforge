@@ -6,17 +6,17 @@ Voice packs for [Claude Code](https://docs.anthropic.com/en/docs/claude-code). A
 
 | Pack ID | Voice | Source | Status |
 |---------|-------|--------|--------|
-| `sc1-adjutant` | **SC1 Adjutant** | StarCraft | Available |
-| `sc2-adjutant` | **SC2 Adjutant** | StarCraft II | Available |
-| `red-alert-eva` | **EVA** | Command & Conquer: Red Alert | Available |
-| `sc1-kerrigan` | **SC1 Kerrigan** | StarCraft | Available |
-| `sc2-kerrigan` | **SC2 Kerrigan** | StarCraft II | Available |
-| `sc1-protoss-advisor` | **Protoss Advisor** | StarCraft | Available |
-| `ss1-shodan` | **SHODAN** | System Shock | Available |
-| | **GLaDOS** | Portal | Planned |
-| | **Cortana** | Halo | Planned |
-| | **HEV Suit** | Half-Life | Planned |
-| | **Deckard Cain** | Diablo | Planned |
+| `sc1-adjutant` | **SC1 Adjutant** | StarCraft | ✅ Available |
+| `sc2-adjutant` | **SC2 Adjutant** | StarCraft II | ✅ Available |
+| `red-alert-eva` | **EVA** | Command & Conquer: Red Alert | ✅ Available |
+| `sc1-kerrigan` | **SC1 Kerrigan** | StarCraft | ✅ Available |
+| `sc2-kerrigan` | **SC2 Kerrigan** | StarCraft II | ✅ Available |
+| `sc1-protoss-advisor` | **Protoss Advisor** | StarCraft | ✅ Available |
+| `ss1-shodan` | **SHODAN** | System Shock | ✅ Available |
+| | **GLaDOS** | Portal | 🔜 Planned |
+| | **Cortana** | Halo | 🔜 Planned |
+| | **HEV Suit** | Half-Life | 🔜 Planned |
+| | **Deckard Cain** | Diablo | 🔜 Planned |
 
 ```bash
 voiceforge voice    # interactive picker
