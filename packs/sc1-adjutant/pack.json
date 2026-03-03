@@ -17,12 +17,12 @@
     {
       "content": "Replaced partial snippet with full CLI section listing all commands",
       "format": "status-report",
-      "response": "Command reference updated. All directives now listed."
+      "response": "Command reference updated. All directives listed."
     },
     {
       "content": "Added volume compensation — each pack's voice analyzed with ffmpeg on first load",
       "format": "status-report",
-      "response": "Audio calibration sequence initialized on startup."
+      "response": "Audio calibration sequence on startup initialized."
     }
   ],
   "fallback_phrases": null,

@@ -13,11 +13,10 @@ const DEFAULT_STYLE =
 const FORMATS = {
   "status-report": [
     "Respond with ONLY 2-8 words as a brief status report.",
-    "The phrase MUST end with a past participle or adjective (e.g. complete, deployed, fixed, detected, adjusted, built, failed, nominal, operational, required).",
+    "The phrase MUST end with a past participle OR adjective (but not both).",
     "Before the final word, state WHAT was done. If you can clearly infer WHY it exists — the purpose or goal — include it (e.g. 'item for purpose adjective'). If the purpose is not obvious, omit it and just describe the action.",
     "Do NOT fabricate or guess a purpose. Only include 'for …' when the intent is clearly evident from context.",
     "No punctuation. No quotes. No explanation.",
-    "Do NOT include the project name — it will be prepended automatically.",
   ].join(" "),
 };
 
