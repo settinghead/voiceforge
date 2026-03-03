@@ -85,7 +85,7 @@ async function main() {
 
   // Prepend project name as prefix
   if (projectName) {
-    phrase = `${projectName}, ${phrase}`;
+    phrase = `${projectName}. ${phrase}`;
   }
 
   await speakPhrase(phrase, config, pack);
