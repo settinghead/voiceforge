@@ -168,14 +168,19 @@ async function voicePick() {
   });
 
   if (chosen === active) {
-    console.log(`Already using: ${packs.find((p) => p.id === chosen).name}`);
+    const label = chosen === "random" ? "Random" : packs.find((p) => p.id === chosen).name;
+    console.log(`Already using: ${label}`);
     return;
   }
 
   config.active_pack = chosen;
   saveConfig(config);
-  const match = packs.find((p) => p.id === chosen);
-  console.log(`Switched to: ${match.name} (${chosen})`);
+  if (chosen === "random") {
+    console.log("Switched to: Random");
+  } else {
+    const match = packs.find((p) => p.id === chosen);
+    console.log(`Switched to: ${match.name} (${chosen})`);
+  }
 }
 
 function packShow() {
