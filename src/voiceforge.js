@@ -41,7 +41,8 @@ async function main() {
     return;
   }
 
-  const config = loadConfig();
+  const cwd = eventData.cwd || "";
+  const config = loadConfig(cwd || undefined);
   if (config.enabled === false) return;
 
   const eventName = eventData.hook_event_name || "";
@@ -54,9 +55,6 @@ async function main() {
 
   // Load active voice pack
   const pack = loadPack(config);
-
-  // Extract project name from cwd
-  const cwd = eventData.cwd || "";
   const projectName = cwd ? basename(cwd) : "";
 
   // For contextual events, try LLM phrase generation

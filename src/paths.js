@@ -9,8 +9,9 @@ export const PACKS_DIR = join(SCRIPT_DIR, "packs");
 export const CACHE_DIR = join(SCRIPT_DIR, "cache");
 export const COLLECT_DIR = join(SCRIPT_DIR, "llm_collect");
 
-// State files in ~/.voiceforge
+// User-level config and state in ~/.voiceforge
 export const STATE_DIR = join(homedir(), ".voiceforge");
+export const GLOBAL_USER_CONFIG_PATH = join(STATE_DIR, "config.json");
 export const QUEUE_DIR = join(STATE_DIR, "queue");
 export const LOCK_FILE = join(STATE_DIR, "playback.lock");
 export const LOG_FILE = join(STATE_DIR, "fallback.log");

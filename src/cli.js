@@ -43,7 +43,7 @@ function maskKey(key) {
 }
 
 function showConfig() {
-  const config = loadConfig();
+  const config = loadConfig(process.cwd());
   const display = { ...config };
   if (display.openrouter_api_key) {
     display.openrouter_api_key = maskKey(display.openrouter_api_key);
@@ -63,7 +63,7 @@ function configSet(key, value) {
   else if (value === "false") coerced = false;
   else if (value !== "" && !isNaN(Number(value))) coerced = Number(value);
 
-  const config = loadConfig();
+  const config = loadConfig(process.cwd());
 
   // Support dot notation for categories (e.g. categories.notification)
   const parts = key.split(".");
@@ -86,7 +86,7 @@ async function testPipeline(text) {
     process.exit(1);
   }
 
-  const config = loadConfig();
+  const config = loadConfig(process.cwd());
   const pack = loadPack(config);
 
   console.log(`Input: ${text}`);
@@ -124,7 +124,7 @@ function costReset() {
 
 function packList() {
   const packs = listPacks();
-  const config = loadConfig();
+  const config = loadConfig(process.cwd());
   const active = config.active_pack || "";
   if (packs.length === 0) {
     console.log("No voice packs found.");
@@ -143,7 +143,7 @@ async function voicePick() {
     return;
   }
 
-  const config = loadConfig();
+  const config = loadConfig(process.cwd());
   const active = config.active_pack || "";
 
   const choices = packs.map((p) => ({
@@ -170,7 +170,7 @@ async function voicePick() {
 }
 
 function packShow() {
-  const config = loadConfig();
+  const config = loadConfig(process.cwd());
   const pack = loadPack(config);
   console.log(JSON.stringify(pack, null, 2));
 }
@@ -187,7 +187,7 @@ function packUse(packId) {
     for (const p of packs) console.error(`  ${p.id} — ${p.name}`);
     process.exit(1);
   }
-  const config = loadConfig();
+  const config = loadConfig(process.cwd());
   config.active_pack = packId;
   saveConfig(config);
   console.log(`Switched to pack: ${match.name} (${packId})`);
@@ -203,7 +203,7 @@ function askLine(prompt) {
 async function setVolume(val) {
   let num;
   if (val == null || val === "") {
-    const config = loadConfig();
+    const config = loadConfig(process.cwd());
     const current = Math.round((config.volume ?? 0.5) * 100);
     const answer = await askLine(`Current volume: ${current}. Enter new volume (0-100): `);
     num = Number(answer);
@@ -216,7 +216,7 @@ async function setVolume(val) {
     process.exit(1);
   }
 
-  const config = loadConfig();
+  const config = loadConfig(process.cwd());
   config.volume = num / 100;
   saveConfig(config);
   console.log(`Volume set to ${num}%`);

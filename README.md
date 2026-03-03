@@ -65,6 +65,23 @@ bash install.sh
 
 Then edit `~/.claude/hooks/voiceforge/config.json` to add your OpenRouter API key and voice file.
 
+## OpenClaw Integration
+
+VoiceForge also works with [OpenClaw](https://openclaw.dev). The OpenClaw hook adapter translates OpenClaw events into VoiceForge notifications, reusing the same pipeline and configuration.
+
+```bash
+bash install-openclaw.sh
+```
+
+| OpenClaw Event | VoiceForge Event | Category |
+|---|---|---|
+| `command:stop` | Stop | `task.complete` (LLM-generated phrase) |
+| `command:new` | SessionStart | `session.start` |
+| `command:reset` | SessionStart | `session.start` |
+| `message:received` | UserPromptSubmit | `task.acknowledge` |
+
+Configuration is shared with the Claude Code installation at `~/.claude/hooks/voiceforge/config.json`. To uninstall the OpenClaw hook only: `bash uninstall-openclaw.sh`.
+
 ## Prerequisites
 
 - **macOS** (uses `afplay` for audio; see Linux note below)
