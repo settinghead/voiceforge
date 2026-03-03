@@ -189,7 +189,7 @@ voiceforge pack use <pack-id>     # Switch active voice pack
 voiceforge config                 # Show current configuration
 voiceforge config set <key> <val> # Set a config value (supports dot notation, e.g. categories.notification)
 voiceforge config path            # Print config file path
-voiceforge test "<text>"          # Run full pipeline: LLM -> TTS -> playback
+voiceforge test "<text>"          # Test full pipeline: LLM generates in-character phrase, TTS synthesizes speech, then plays audio
 voiceforge cost                   # Show accumulated token usage and estimated cost
 voiceforge cost reset             # Clear the usage log
 voiceforge help                   # Show help
