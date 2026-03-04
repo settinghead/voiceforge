@@ -88,11 +88,15 @@ Both paths run an interactive wizard that configures your LLM provider, API key,
 
 ## OpenClaw Integration
 
-VoiceForge also works with [OpenClaw](https://openclaw.dev). The OpenClaw hook adapter translates OpenClaw events into VoiceForge notifications, reusing the same pipeline and configuration.
+VoiceForge also works with [OpenClaw](https://openclaw.dev). Install the hook with:
 
 ```bash
-bash install-openclaw.sh
+openclaw hooks install openclaw/voiceforge
 ```
+
+Or from inside a Claude Code / OpenClaw session, just ask your agent:
+
+> Install the VoiceForge OpenClaw hook from `openclaw/voiceforge` in the voiceforge repo
 
 | OpenClaw Event | VoiceForge Event | Category |
 |---|---|---|
@@ -101,7 +105,7 @@ bash install-openclaw.sh
 | `command:reset` | SessionStart | `session.start` |
 | `message:received` | UserPromptSubmit | `task.acknowledge` |
 
-Configuration is shared with the Claude Code installation at `~/.claude/hooks/voiceforge/config.json`. To uninstall the OpenClaw hook only: `bash uninstall-openclaw.sh`.
+Configuration is shared with VoiceForge — run `voiceforge setup` to configure. To uninstall: `bash uninstall-openclaw.sh`.
 
 ## Prerequisites
 
