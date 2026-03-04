@@ -38,23 +38,27 @@ voiceforge voice    # interactive picker
 
 ```mermaid
 flowchart TD
-    A[Claude Code Hook Event] --> B[voiceforge.sh]
+    A1[Claude Code Hook] --> B[voiceforge.sh]
+    A2[OpenClaw Hook] --> B
     B --> C[src/voiceforge.js]
     C --> D{Event type?}
-    D -- "Contextual (e.g. Stop)" --> E[OpenRouter LLM<br><i>generate in-character phrase</i>]
+    D -- "Contextual (e.g. Stop)" --> E[LLM<br><i>generate in-character phrase</i>]
     D -- "Other events" --> F[Fallback phrases<br><i>from voice pack</i>]
-    E --> G[Chatterbox TTS<br><i>local speech synthesis</i>]
+    E --> G{TTS backend?}
     F --> G
-    G --> H[Audio processing<br><i>echo · normalize · post-process</i>]
+    G -- Chatterbox --> G1[Chatterbox TTS<br><i>local speech synthesis</i>]
+    G -- Qwen3 --> G2[Qwen3-TTS<br><i>local speech synthesis</i>]
+    G1 --> H[Audio processing<br><i>echo · normalize · post-process</i>]
+    G2 --> H
     H --> I[(Cache<br><i>LRU, keyed by phrase + params</i>)]
     I --> J[Playback queue<br><i>serial via file lock</i>]
     J --> K[afplay / paplay]
 ```
 
-1. Claude Code fires a hook event — `voiceforge.sh` passes it to `src/voiceforge.js`
+1. A hook event fires (from Claude Code or OpenClaw) — `voiceforge.sh` passes it to `src/voiceforge.js`
 2. The event is mapped to a category and the active voice pack is loaded
-3. Contextual events (e.g. task completion) send context to an OpenRouter LLM, which generates a short in-character phrase; other events use predefined fallback phrases from the pack
-4. The phrase is sent to a local Chatterbox TTS server for speech synthesis with per-pack voice cloning parameters
+3. Contextual events (e.g. task completion) send context to the configured LLM, which generates a short in-character phrase; other events use predefined fallback phrases from the pack
+4. The phrase is sent to the configured TTS backend (Chatterbox or Qwen3-TTS) for local speech synthesis with per-pack voice cloning parameters
 5. The resulting audio is post-processed (optional pitch/tempo), echo-filtered, and volume-normalized (sox)
 6. Processed audio is cached on disk — repeated phrases play instantly from cache
 7. A file-based queue with lock ensures serial playback across concurrent hook events
