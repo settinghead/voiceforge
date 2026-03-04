@@ -6,8 +6,6 @@
  */
 
 import { spawn } from "child_process";
-import { join } from "path";
-import { homedir } from "os";
 
 // OpenClaw event -> VoiceForge hook_event_name
 const EVENT_MAP: Record<string, string> = {
@@ -73,13 +71,8 @@ async function main() {
   const translated = translateEvent(event);
   if (!translated) return;
 
-  // Resolve voiceforge.js path
-  const voiceforgeHome =
-    process.env.VOICEFORGE_HOME || join(homedir(), ".claude", "hooks", "voiceforge");
-  const voiceforgeJs = join(voiceforgeHome, "src", "voiceforge.js");
-
-  // Spawn voiceforge.js with translated event on stdin (fire-and-forget)
-  const child = spawn("node", [voiceforgeJs], {
+  // Spawn `voiceforge hook` CLI with translated event on stdin (fire-and-forget)
+  const child = spawn("voiceforge", ["hook"], {
     stdio: ["pipe", "ignore", "ignore"],
     detached: true,
   });
