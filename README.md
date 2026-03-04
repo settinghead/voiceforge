@@ -65,59 +65,43 @@ flowchart TD
 6. Processed audio is cached on disk — repeated phrases play instantly from cache
 7. A file-based queue with lock ensures serial playback across concurrent hook events
 
-## Quick Install
-
-### Option A: npm (recommended)
-
-```bash
-npm install -g @settinghead/voiceforge
-```
-```bash
-voiceforge setup
-```
-
-### Option B: git clone
-
-```bash
-git clone https://github.com/settinghead/voiceforge.git
-cd voiceforge
-bash install.sh    # launches the setup wizard
-```
-
-Both paths run an interactive wizard that configures your LLM provider, API key, voice pack, TTS server, and Claude Code hooks. Run `voiceforge setup` again at any time to reconfigure.
-
-## OpenClaw Integration
-
-VoiceForge also works with [OpenClaw](https://openclaw.dev). Install the hook with:
-
-```bash
-openclaw hooks install openclaw/voiceforge
-```
-
-Or from inside a Claude Code / OpenClaw session, just ask your agent:
-
-> Install the VoiceForge OpenClaw hook from `openclaw/voiceforge` in the voiceforge repo
-
-| OpenClaw Event | VoiceForge Event | Category |
-|---|---|---|
-| `command:stop` | Stop | `task.complete` (LLM-generated phrase) |
-| `command:new` | SessionStart | `session.start` |
-| `command:reset` | SessionStart | `session.start` |
-| `message:received` | UserPromptSubmit | `task.acknowledge` |
-
-Configuration is shared with VoiceForge — run `voiceforge setup` to configure. To uninstall: `bash uninstall-openclaw.sh`.
-
 ## Prerequisites
 
 - **macOS** (uses `afplay` for audio; see Linux note below)
 - **Node.js 18+**
 - **LLM API key** — one of: [OpenRouter](https://openrouter.ai) (recommended), [OpenAI](https://platform.openai.com/api-keys), [Google Gemini](https://aistudio.google.com/apikey), or [Anthropic](https://console.anthropic.com/settings/keys). The setup wizard walks you through this, or skip for fallback phrases only.
-- **Chatterbox TTS server** (optional) — local text-to-speech (see setup below)
+- **A TTS backend** (at least one):
+
+| Backend | Best for | Requirements |
+|---|---|---|
+| **Qwen3-TTS** (recommended) | Apple Silicon Macs | Python 3.13+, 16 GB RAM, ~8 GB disk |
+| **Chatterbox** | Any platform with GPU | Python 3.10+, CUDA or MPS |
 
 <details>
-<summary><strong>Chatterbox TTS Setup</strong></summary>
+<summary><strong>Option A: Qwen3-TTS Setup (recommended for Apple Silicon)</strong></summary>
 
-VoiceForge uses [Chatterbox TTS](https://github.com/resemble-ai/chatterbox) for speech synthesis running as a local API server.
+Uses [Qwen3-TTS](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-Base) with an MLX backend (quantized, fast on Apple Silicon).
+
+```bash
+cd qwen3-tts-experiment
+./setup.sh    # creates venv, installs deps, downloads model (~8 GB)
+./run.sh      # starts server on port 8100
+```
+
+Then set VoiceForge to use it:
+
+```bash
+voiceforge config set tts_backend qwen
+```
+
+See [`qwen3-tts-experiment/README.md`](qwen3-tts-experiment/README.md) for environment variables, API docs, and troubleshooting.
+
+</details>
+
+<details>
+<summary><strong>Option B: Chatterbox TTS Setup</strong></summary>
+
+Uses [Chatterbox TTS](https://github.com/resemble-ai/chatterbox) for speech synthesis running as a local API server.
 
 #### 1. Clone and set up Chatterbox
 
@@ -177,6 +161,50 @@ launchctl load ~/Library/LaunchAgents/com.chatterbox.tts.plist
 ```
 
 </details>
+
+The setup wizard (`voiceforge setup`) auto-detects which TTS backends are running and lets you choose.
+
+## Quick Install
+
+### Option A: npm (recommended)
+
+```bash
+npm install -g @settinghead/voiceforge
+```
+```bash
+voiceforge setup
+```
+
+### Option B: git clone
+
+```bash
+git clone https://github.com/settinghead/voiceforge.git
+cd voiceforge
+bash install.sh    # launches the setup wizard
+```
+
+Both paths run an interactive wizard that configures your LLM provider, API key, voice pack, TTS server, and Claude Code hooks. Run `voiceforge setup` again at any time to reconfigure.
+
+## OpenClaw Integration
+
+VoiceForge also works with [OpenClaw](https://openclaw.dev). Install the hook with:
+
+```bash
+openclaw hooks install openclaw/voiceforge
+```
+
+Or from inside a Claude Code / OpenClaw session, just ask your agent:
+
+> Install the VoiceForge OpenClaw hook from `openclaw/voiceforge` in the voiceforge repo
+
+| OpenClaw Event | VoiceForge Event | Category |
+|---|---|---|
+| `command:stop` | Stop | `task.complete` (LLM-generated phrase) |
+| `command:new` | SessionStart | `session.start` |
+| `command:reset` | SessionStart | `session.start` |
+| `message:received` | UserPromptSubmit | `task.acknowledge` |
+
+Configuration is shared with VoiceForge — run `voiceforge setup` to configure. To uninstall: `bash uninstall-openclaw.sh`.
 
 ## Configuration
 
