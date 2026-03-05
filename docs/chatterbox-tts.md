@@ -6,6 +6,8 @@
 
 ### 1. Clone and set up Chatterbox
 
+**macOS / Linux:**
+
 ```bash
 git clone https://github.com/resemble-ai/chatterbox.git
 cd chatterbox
@@ -15,9 +17,30 @@ pip install -e .
 pip install fastapi uvicorn
 ```
 
+**Windows (PowerShell or cmd):**
+
+```powershell
+git clone https://github.com/resemble-ai/chatterbox.git
+cd chatterbox
+py -m venv venv
+venv\Scripts\activate
+pip install -e .
+pip install fastapi uvicorn
+```
+
 ### 2. Run the server
 
+**macOS / Linux:**
+
 ```bash
+source venv/bin/activate
+python -m chatterbox.server --port 8004
+```
+
+**Windows:**
+
+```powershell
+venv\Scripts\activate
 python -m chatterbox.server --port 8004
 ```
 

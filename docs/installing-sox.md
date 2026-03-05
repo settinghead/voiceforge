@@ -16,7 +16,7 @@ Choose one of the following:
 
 - **Chocolatey:** `choco install sox`
 - **Scoop:** `scoop install sox`
-- **Manual:** Download the [SoX Windows binaries](https://sourceforge.net/projects/sox/files/sox/) and add the folder containing `sox.exe` to your PATH.
+- **Manual:** Download the [SoX Windows binaries](https://sourceforge.net/projects/sox/files/sox/) and add the folder containing `sox.exe` to your PATH (e.g. Settings → System → About → Advanced system settings → Environment Variables → Path → Edit → New → paste the folder path).
 
 ## Linux
 

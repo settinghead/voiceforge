@@ -16,6 +16,8 @@ A FastAPI server that uses [Qwen3-TTS](https://huggingface.co/Qwen/Qwen3-TTS-12H
 
 ### Quick start
 
+**macOS / Linux:** Run the setup script, then start the server:
+
 ```bash
 # 1. Run first-time setup (venv, deps, model download)
 ./setup.sh
@@ -26,6 +28,8 @@ A FastAPI server that uses [Qwen3-TTS](https://huggingface.co/Qwen/Qwen3-TTS-12H
 # 3. Point VoiceForge at it
 voiceforge config set tts_backend qwen
 ```
+
+**Windows:** The scripts above are bash (e.g. `setup.sh`, `run.sh`). Use **WSL** or **Git Bash** to run them, or do the steps manually: create a venv, `pip install -r requirements.txt`, download the PyTorch models (see Troubleshooting → "Model not found"), then run `python server.py` with `QWEN_TTS_RUNTIME=pytorch` and ensure the voiceforge `packs/` directory is available (e.g. clone the full voiceforge repo and run the server from `qwen3-tts-experiment`).
 
 Generate speech directly:
 

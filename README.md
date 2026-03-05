@@ -55,7 +55,7 @@ flowchart TD
     G2 --> H
     H --> I[(Cache<br><i>LRU, keyed by phrase + params</i>)]
     I --> J[Playback queue<br><i>serial via file lock</i>]
-    J --> K[afplay / paplay]
+    J --> K[afplay / ffplay]
 ```
 
 1. A hook event fires (from Claude Code, Cursor, or OpenClaw) — `voiceforge.sh` or `voiceforge cursor-hook` passes it to `src/voiceforge.js`
@@ -68,18 +68,20 @@ flowchart TD
 
 ## Prerequisites
 
+Install these **before** running the Quick Install below:
+
 | Aspect | macOS | Windows | Linux |
 |--------|-------|---------|-------|
-| **Node.js** | 18+ | 18+ | 18+ |
-| **Audio playback** | Built-in (`afplay`) | [FFmpeg](https://ffmpeg.org/download.html) — `ffplay` on PATH | [FFmpeg](https://ffmpeg.org/) — `ffplay` on PATH |
+| **Node.js 18+** | [nodejs.org](https://nodejs.org) or `brew install node` | [nodejs.org](https://nodejs.org) or `winget install OpenJS.NodeJS` | [nodejs.org](https://nodejs.org) or distro package (e.g. `sudo apt install nodejs`) |
+| **Audio playback** | Built-in (`afplay`) | [FFmpeg](docs/installing-ffmpeg.md) — `ffplay` on PATH | [FFmpeg](docs/installing-ffmpeg.md) — `ffplay` on PATH |
 | **Audio effects** | [SoX](docs/installing-sox.md) (optional) | [SoX](docs/installing-sox.md) (optional) | [SoX](docs/installing-sox.md) (optional) |
 
-See [Installing SoX](docs/installing-sox.md) for platform-specific instructions.
+See [Installing FFmpeg](docs/installing-ffmpeg.md) (Windows/Linux) and [Installing SoX](docs/installing-sox.md) for platform-specific commands.
 
 **All platforms**
 
 - **LLM API key** — one of: [OpenRouter](https://openrouter.ai) (recommended), [OpenAI](https://platform.openai.com/api-keys), [Google Gemini](https://aistudio.google.com/apikey), or [Anthropic](https://console.anthropic.com/settings/keys). The setup wizard walks you through this, or skip for fallback phrases only.
-- **TTS backend** (at least one):
+- **TTS backend** (at least one) for **spoken** voice. Without a TTS server you still get notifications and fallback phrases, but no synthesized speech — the wizard will tell you if none is detected.
 
 | Backend | Best for | Requirements |
 |---|---|---|
@@ -88,9 +90,12 @@ See [Installing SoX](docs/installing-sox.md) for platform-specific instructions.
 
 See [Qwen3-TTS](qwen3-tts-experiment/README.md) for installation and backends (MLX, PyTorch+MPS, PyTorch+CUDA). See [Chatterbox TTS](docs/chatterbox-tts.md) for setup.
 
-The setup wizard (`voiceforge setup`) auto-detects which TTS backends are running and lets you choose.
+The setup wizard (`voiceforge setup`) auto-detects which TTS backends are running. If none are running, it will note that you'll get fallback phrases only until you start a TTS server and run setup again.
 
 ## Quick Install
+
+1. **Install prerequisites** (Node 18+, and on Windows/Linux: [FFmpeg](docs/installing-ffmpeg.md) so `ffplay` is on PATH).
+2. **Install VoiceForge and run setup:**
 
 ```bash
 npm install -g @settinghead/voiceforge
@@ -99,7 +104,11 @@ voiceforge setup
 
 The setup wizard configures your LLM provider, API key, voice pack, TTS server, Claude Code hooks, and optionally Cursor hooks. Run `voiceforge setup` again anytime to reconfigure.
 
-**From a git clone:** `npm install` in the repo, then run `voiceforge setup`. The `voiceforge` CLI will use the local copy (config and cache go to `~/.voiceforge` when installed globally, or the repo when run via `node src/cli.js`).
+3. **For spoken voice**, start at least one TTS backend (see [Qwen3-TTS](qwen3-tts-experiment/README.md) or [Chatterbox](docs/chatterbox-tts.md)), then run `voiceforge setup` again so the wizard can detect it.
+
+**From a git clone:** `npm install` in the repo, then run `voiceforge setup`. Config and cache live in `~/.voiceforge` (on Windows: `%USERPROFILE%\.voiceforge`). When installed globally the CLI uses the local copy; when run via `node src/cli.js` it uses the repo.
+
+**Verify:** Run `voiceforge test "Hello"` — you should hear a phrase (and see a notification). If you don’t hear speech, ensure a TTS server is running and `voiceforge config` shows the correct `tts_backend`.
 
 > **🔔 Visual notifications** — VoiceForge shows a popup with each phrase (no extra install). On **macOS** you can use a custom overlay or the system Notification Center; on **Windows/Linux** you get system toasts. Turn notifications off or switch style anytime with:
 > ```bash
@@ -233,8 +242,8 @@ Additional hook events (e.g. SubagentStart) are registered in Claude Code but us
 
 ## Platform notes
 
-- **Windows**: Use `npm install -g @settinghead/voiceforge`, then `voiceforge setup`. Configure Cursor/Claude Code hooks to call `voiceforge hook` / `voiceforge cursor-hook` if your environment doesn’t pick them up automatically. Audio needs FFmpeg (`ffplay`) on PATH. Notifications use **node-notifier** (included).
-- **Linux**: Same as Prerequisites table. Audio: `ffplay` on PATH. Notifications use **node-notifier** (included).
+- **Windows**: Install [Node.js](https://nodejs.org) and [FFmpeg](docs/installing-ffmpeg.md) (for `ffplay`). Use `npm install -g @settinghead/voiceforge`, then `voiceforge setup`. Ensure the npm global bin directory is on your PATH so `voiceforge` is found; if Cursor/Claude Code hooks don’t see it, use the full path to `voiceforge.cmd` in your hook config. Notifications use **node-notifier** (included).
+- **Linux**: Install Node and [FFmpeg](docs/installing-ffmpeg.md) so `ffplay` is on PATH. Notifications use **node-notifier** (included).
 
 ## Uninstall
 
