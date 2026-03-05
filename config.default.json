@@ -17,6 +17,10 @@
   "qwen_tts_url": "http://localhost:8100",
   "active_pack": "sc2-adjutant",
   "volume": 1.0,
+  "logging": true,
+  "error_log": false,
+  "overlay": true,
+  "overlay_dismiss": 4,
   "categories": {
     "session.start": true,
     "session.end": true,

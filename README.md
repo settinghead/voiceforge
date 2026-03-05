@@ -259,8 +259,13 @@ Configuration lives at `config.json` (run `voiceforge config path` to find it). 
 | `active_pack` | string | `"sc2-adjutant"` | Active voice pack ID (see `packs/`) |
 | `volume` | number | `1.0` | Playback volume (0.0–1.0) |
 | `categories` | object | — | Enable/disable per event category |
+| `logging` | boolean | `true` | Activity log: one line per event to `~/.voiceforge/voiceforge.log` (retention: 30 days or 5MB, whichever comes first) |
+| `error_log` | boolean | `false` | Error/fallback log: when LLM fails or no context, append to `~/.voiceforge/fallback.log` |
 
-When the LLM is not used or fails (e.g. no context, timeout, API error), VoiceForge uses a fallback phrase and appends a line to the **fallback log**. Run `voiceforge log path` to print the log file path (usually `~/.voiceforge/fallback.log`). Only contextual events (Stop, PostToolUseFailure) produce log entries.
+### Logging
+
+- **Activity log** (default **on**): Each hook event is written as one line to `~/.voiceforge/voiceforge.log`. Retention is 30 days or 5MB total, whichever is reached first (oldest lines are dropped). Run `voiceforge log` to stream the log live (tail-style). Turn off with `voiceforge log off`, on with `voiceforge log on`.
+- **Error log** (default **off**): When the LLM is not used or fails (no context, timeout, API error), VoiceForge uses a fallback phrase; if **error log** is enabled, a line is appended to `~/.voiceforge/fallback.log`. Only contextual events (Stop, PostToolUseFailure) produce entries. Turn on with `voiceforge log error on`, off with `voiceforge log error off`. Paths: `voiceforge log path` (activity), `voiceforge log error-path` (error).
 
 You can also use the `/voiceforge-config` slash command in Claude Code to manage configuration interactively.
 
@@ -277,7 +282,11 @@ voiceforge pack use <pack-id>     # Switch active voice pack
 voiceforge config                 # Show current configuration
 voiceforge config set <key> <val> # Set a config value (supports dot notation, e.g. categories.notification)
 voiceforge config path            # Print config file path
-voiceforge log path               # Print fallback/LLM log file path
+voiceforge log                    # Stream activity log (tail -f style)
+voiceforge log path               # Print activity log file path
+voiceforge log error-path         # Print error/fallback log file path
+voiceforge log on | off           # Enable or disable activity logging
+voiceforge log error on | off     # Enable or disable error logging
 voiceforge test "<text>"          # Test full pipeline: LLM generates in-character phrase, TTS synthesizes speech, then plays audio
 voiceforge cost                   # Show accumulated token usage and estimated cost
 voiceforge cost reset             # Clear the usage log

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { readFileSync, existsSync } from "fs";
+import { readFileSync, existsSync, watchFile } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { createInterface } from "readline";
@@ -8,9 +8,10 @@ import select from "@inquirer/select";
 import { loadConfig, saveConfig, FALLBACK_PHRASES } from "./config.js";
 import { generatePhrase } from "./llm.js";
 import { speakPhrase } from "./audio.js";
+import { showOverlay } from "./overlay.js";
 import { loadPack, listPacks } from "./packs.js";
 import { formatCost, resetUsage } from "./cost.js";
-import { CONFIG_PATH, STATE_DIR, LOG_FILE } from "./paths.js";
+import { CONFIG_PATH, STATE_DIR, LOG_FILE, MAIN_LOG_FILE } from "./paths.js";
 import { processHookEvent } from "./voiceforge.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -27,7 +28,11 @@ Usage:
   voiceforge config show         Show current configuration
   voiceforge config set <k> <v>  Set a config value (supports categories.X dot notation)
   voiceforge config path         Print config file path
-  voiceforge log path            Print fallback/LLM log file path
+  voiceforge log                  Stream activity log (tail -f style)
+  voiceforge log path            Print activity log file path
+  voiceforge log error-path      Print error/fallback log file path
+  voiceforge log on | off        Enable or disable activity logging
+  voiceforge log error on | off  Enable or disable error (fallback) logging
   voiceforge voice               Interactive voice pack picker
   voiceforge pack list           List available voice packs
   voiceforge pack show           Show active pack details
@@ -100,6 +105,60 @@ async function runCursorHook() {
     // best-effort: still return {} so Cursor doesn't error
   }
   process.stdout.write("{}\n");
+}
+
+const TAIL_LINES = 100;
+
+function tailLog() {
+  if (!existsSync(MAIN_LOG_FILE)) {
+    console.log("(No activity log yet. Logging is on by default; events will appear here.)");
+    console.log("Path: " + MAIN_LOG_FILE);
+  }
+  let lastSize = 0;
+  function readNew() {
+    try {
+      const content = readFileSync(MAIN_LOG_FILE, "utf-8");
+      if (content.length < lastSize) lastSize = 0;
+      if (content.length > lastSize) {
+        const newPart = content.slice(lastSize);
+        process.stdout.write(newPart);
+        lastSize = content.length;
+      }
+    } catch {
+      // file may have been removed
+    }
+  }
+  function init() {
+    try {
+      const content = readFileSync(MAIN_LOG_FILE, "utf-8");
+      const lines = content.split("\n").filter((l) => l.length > 0);
+      const toShow = lines.slice(-TAIL_LINES);
+      toShow.forEach((l) => console.log(l));
+      lastSize = content.length;
+    } catch {
+      lastSize = 0;
+    }
+  }
+  init();
+  watchFile(MAIN_LOG_FILE, { interval: 500 }, (cur, prev) => {
+    readNew();
+  });
+  // Keep process alive
+  process.stdin.resume();
+}
+
+function setLoggingOnOff(value) {
+  const config = loadConfig(process.cwd());
+  config.logging = value === "on" || value === true;
+  saveConfig(config);
+  console.log("Activity logging: " + (config.logging ? "on" : "off"));
+}
+
+function setErrorLogOnOff(value) {
+  const config = loadConfig(process.cwd());
+  config.error_log = value === "on" || value === true;
+  saveConfig(config);
+  console.log("Error (fallback) logging: " + (config.error_log ? "on" : "off"));
 }
 
 function maskKey(key) {
@@ -178,6 +237,14 @@ async function testPipeline(text, pack) {
   }
 
   console.log("Sending to TTS...");
+  showOverlay(phrase, {
+    category: "notification",
+    packName: pack.name,
+    packId: pack.id || (config.active_pack || "sc2-adjutant"),
+    prefix: "Test",
+    config,
+    overlayColors: pack.overlay_colors,
+  });
   await speakPhrase(phrase, config, pack);
   console.log("Done.");
 }
@@ -371,14 +438,30 @@ async function setVolume(val) {
       }
       break;
 
-    case "log":
-      if (sub === "path") {
+    case "log": {
+      const logSub = sub;
+      const logArg = args[2];
+      if (logSub === "path") {
+        console.log(MAIN_LOG_FILE);
+      } else if (logSub === "error-path") {
         console.log(LOG_FILE);
+      } else if (logSub === "on" || logSub === "off") {
+        setLoggingOnOff(logSub);
+      } else if (logSub === "error" && (logArg === "on" || logArg === "off")) {
+        setErrorLogOnOff(logArg);
+      } else if (!logSub || logSub === "tail") {
+        tailLog();
       } else {
-        console.log("Fallback/LLM log: " + LOG_FILE);
-        console.log("Use: voiceforge log path");
+        console.log("Activity log: " + MAIN_LOG_FILE);
+        console.log("Error log: " + LOG_FILE);
+        console.log("Use: voiceforge log          (stream activity log)");
+        console.log("      voiceforge log path    (activity log path)");
+        console.log("      voiceforge log error-path");
+        console.log("      voiceforge log on | off");
+        console.log("      voiceforge log error on | off");
       }
       break;
+    }
 
     case "pack":
       if (sub === "list" || sub === "ls") {

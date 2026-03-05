@@ -33,4 +33,5 @@ export const GLOBAL_USER_CONFIG_PATH = join(STATE_DIR, "config.json");
 export const QUEUE_DIR = join(STATE_DIR, "queue");
 export const LOCK_FILE = join(STATE_DIR, "playback.lock");
 export const LOG_FILE = join(STATE_DIR, "fallback.log");
+export const MAIN_LOG_FILE = join(STATE_DIR, "voiceforge.log");
 export const USAGE_FILE = join(STATE_DIR, "usage.jsonl");

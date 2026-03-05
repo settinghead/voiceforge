@@ -14,6 +14,7 @@ import { speakPhrase } from "./audio.js";
 import { showOverlay } from "./overlay.js";
 import { loadPack } from "./packs.js";
 import { STATE_DIR, LOG_FILE } from "./paths.js";
+import { appendLog } from "./activity-log.js";
 
 function logFallback(eventName, reason, detail) {
   try {
@@ -67,7 +68,7 @@ export async function processHookEvent(eventData) {
 
   // Fall back to predefined phrases (pack overrides defaults)
   if (!phrase) {
-    if (fallbackReason) {
+    if (fallbackReason && config.error_log === true) {
       logFallback(eventName, fallbackReason, fallbackDetail);
     }
     const fallbackSource = pack.fallback_phrases || FALLBACK_PHRASES;
@@ -86,6 +87,11 @@ export async function processHookEvent(eventData) {
   }
 
   const packId = config.active_pack || "sc2-adjutant";
+  const phraseOneLine = phrase.replace(/\s+/g, " ").slice(0, 120);
+  appendLog(
+    `[${new Date().toISOString()}] event=${eventName} category=${category} phrase=${phraseOneLine}${phrase.length > 120 ? "…" : ""}`,
+    config,
+  );
   showOverlay(phrase, {
     category,
     packName: pack.name,
