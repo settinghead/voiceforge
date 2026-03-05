@@ -32,9 +32,10 @@ if [[ ! -f "$VOICEFORGE_HOME/src/voiceforge.js" ]]; then
     echo "ERROR: VoiceForge not found at $VOICEFORGE_HOME"
     echo ""
     echo "Install VoiceForge first:"
-    echo "  cd $(dirname "$0") && bash install.sh"
+    echo "  npm install -g @settinghead/voiceforge"
+    echo "  voiceforge setup"
     echo ""
-    echo "Or set VOICEFORGE_HOME if installed elsewhere:"
+    echo "Or set VOICEFORGE_HOME if installed elsewhere (e.g. a git clone):"
     echo "  VOICEFORGE_HOME=/path/to/voiceforge bash install-openclaw.sh"
     exit 1
 fi

@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 
-import { readFileSync, existsSync, watchFile } from "fs";
+import { readFileSync, existsSync, watchFile, rmSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { createInterface } from "readline";
 import select from "@inquirer/select";
+import confirm from "@inquirer/confirm";
 import { loadConfig, saveConfig, FALLBACK_PHRASES } from "./config.js";
 import { generatePhrase } from "./llm.js";
 import { speakPhrase } from "./audio.js";
@@ -13,6 +14,8 @@ import { loadPack, listPacks } from "./packs.js";
 import { formatCost, resetUsage } from "./cost.js";
 import { CONFIG_PATH, STATE_DIR, LOG_FILE, MAIN_LOG_FILE } from "./paths.js";
 import { processHookEvent } from "./voiceforge.js";
+import { unregisterHooks, removeSkill } from "./hooks.js";
+import { unregisterCursorHooks } from "./cursor-hooks.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf-8"));
@@ -43,6 +46,7 @@ Usage:
   voiceforge test "<text>"       Run full pipeline: LLM -> TTS -> audio playback
   voiceforge cost                Show accumulated token usage and estimated cost
   voiceforge cost reset          Clear the usage log
+  voiceforge uninstall           Remove hooks from Claude Code & Cursor, optionally config/cache
   voiceforge help                Show this help message
   voiceforge --version           Show version
 `.trim();
@@ -425,6 +429,42 @@ async function notificationPick() {
   console.log(`Notifications: ${labels[chosen]}`);
 }
 
+async function runUninstall() {
+  console.log("Removing VoiceForge hooks and skill...\n");
+
+  const claudeRemoved = unregisterHooks();
+  if (claudeRemoved > 0) {
+    console.log(`  Removed ${claudeRemoved} hook(s) from ~/.claude/settings.json`);
+  }
+
+  const cursorRemoved = unregisterCursorHooks();
+  if (cursorRemoved > 0) {
+    console.log(`  Removed ${cursorRemoved} hook(s) from ~/.cursor/hooks.json`);
+  }
+
+  const skillRemoved = removeSkill();
+  if (skillRemoved) {
+    console.log("  Removed voiceforge-config skill");
+  }
+
+  if (claudeRemoved === 0 && cursorRemoved === 0 && !skillRemoved) {
+    console.log("  No VoiceForge hooks or skill were found.");
+  }
+
+  if (existsSync(STATE_DIR)) {
+    const removeData = await confirm({
+      message: `Remove config and cache (${STATE_DIR})?`,
+      default: false,
+    });
+    if (removeData) {
+      rmSync(STATE_DIR, { recursive: true });
+      console.log(`  Removed ${STATE_DIR}`);
+    }
+  }
+
+  console.log("\nUninstall complete. You can still run 'voiceforge' if installed via npm; run 'npm uninstall -g @settinghead/voiceforge' to remove the CLI.");
+}
+
 // --- Main ---
 (async () => {
   const args = process.argv.slice(2);
@@ -432,7 +472,7 @@ async function notificationPick() {
   const sub = args[1] || "";
 
   // First-run: auto-launch setup wizard if ~/.voiceforge/ doesn't exist
-  const skipWizardCmds = ["setup", "hook", "cursor-hook", "log", "notification", "help", "--help", "-h", "--version", "-v"];
+  const skipWizardCmds = ["setup", "hook", "cursor-hook", "log", "notification", "uninstall", "help", "--help", "-h", "--version", "-v"];
   if (!skipWizardCmds.includes(cmd) && !existsSync(STATE_DIR)) {
     console.log("Welcome to VoiceForge! Let's get you set up.\n");
     const { runSetup } = await import("./setup.js");
@@ -537,6 +577,10 @@ async function notificationPick() {
       } else {
         await showCost();
       }
+      break;
+
+    case "uninstall":
+      await runUninstall();
       break;
 
     case "help":

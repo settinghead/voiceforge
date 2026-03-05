@@ -60,13 +60,13 @@ Restart Cursor after installing or editing hooks.
 
 ## Uninstall
 
-Run the standard uninstaller; it removes VoiceForge entries from `~/.cursor/hooks.json` as well as Claude Code hooks:
+Remove VoiceForge from Cursor (and Claude Code) and optionally delete config/cache:
 
 ```bash
-bash ~/.claude/hooks/voiceforge/uninstall.sh
+voiceforge uninstall
 ```
 
-Or remove only Cursor hooks by editing `~/.cursor/hooks.json` and deleting the entries that call `voiceforge cursor-hook`.
+To remove only Cursor hooks, edit `~/.cursor/hooks.json` and delete the entries that call `voiceforge cursor-hook`.
 
 ## Configuration
 

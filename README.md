@@ -73,7 +73,6 @@ flowchart TD
 | **Node.js** | 18+ | 18+ | 18+ |
 | **Audio playback** | Built-in (`afplay`) | [FFmpeg](https://ffmpeg.org/download.html) — `ffplay` on PATH | [FFmpeg](https://ffmpeg.org/) — `ffplay` on PATH |
 | **Audio effects** | FFmpeg + SoX (optional) | FFmpeg + SoX (optional) | FFmpeg + SoX (optional) |
-| **Install method** | `install.sh` or npm | npm only (no bash script) | `install.sh` or npm |
 
 > **🔔 Visual notifications** — VoiceForge shows a popup with each phrase (no extra install). On **macOS** you can use a custom overlay or the system Notification Center; on **Windows/Linux** you get system toasts. Turn notifications off or switch style anytime with:
 > ```bash
@@ -179,24 +178,14 @@ The setup wizard (`voiceforge setup`) auto-detects which TTS backends are runnin
 
 ## Quick Install
 
-### Option A: npm (recommended)
-
 ```bash
 npm install -g @settinghead/voiceforge
-```
-```bash
 voiceforge setup
 ```
 
-### Option B: git clone
+The setup wizard configures your LLM provider, API key, voice pack, TTS server, Claude Code hooks, and optionally Cursor hooks. Run `voiceforge setup` again anytime to reconfigure.
 
-```bash
-git clone https://github.com/settinghead/voiceforge.git
-cd voiceforge
-bash install.sh    # launches the setup wizard
-```
-
-Both paths run an interactive wizard that configures your LLM provider, API key, voice pack, TTS server, Claude Code hooks, and optionally Cursor hooks. Run `voiceforge setup` again at any time to reconfigure.
+**From a git clone:** `npm install` in the repo, then run `voiceforge setup`. The `voiceforge` CLI will use the local copy (config and cache go to `~/.voiceforge` when installed globally, or the repo when run via `node src/cli.js`).
 
 ## OpenClaw Integration
 
@@ -325,16 +314,20 @@ Additional hook events (e.g. SubagentStart) are registered in Claude Code but us
 
 ## Platform notes
 
-- **Windows**: Use `npm install -g @settinghead/voiceforge` (or clone + `npm install`). The `install.sh` script is Unix-only; configure Cursor/Claude Code hooks to call `voiceforge hook` / `voiceforge cursor-hook` manually (see Cursor/Claude docs). Audio needs FFmpeg (`ffplay`) on PATH. Notifications use **node-notifier** (included) — Windows 8+ toasts or taskbar balloons.
-- **Linux**: Same as Prerequisites table. Audio: `ffplay` on PATH. Notifications use **node-notifier** (included) — `notify-osd` or `libnotify-bin` (Ubuntu usually has one).
+- **Windows**: Use `npm install -g @settinghead/voiceforge`, then `voiceforge setup`. Configure Cursor/Claude Code hooks to call `voiceforge hook` / `voiceforge cursor-hook` if your environment doesn’t pick them up automatically. Audio needs FFmpeg (`ffplay`) on PATH. Notifications use **node-notifier** (included).
+- **Linux**: Same as Prerequisites table. Audio: `ffplay` on PATH. Notifications use **node-notifier** (included).
 
 ## Uninstall
 
 ```bash
-bash ~/.claude/hooks/voiceforge/uninstall.sh
+voiceforge uninstall
 ```
 
-This removes hooks from Claude Code and Cursor and cleans up installed files. You'll be prompted to keep or remove your config and cached audio.
+This removes VoiceForge hooks from Claude Code and Cursor, the voiceforge-config skill, and optionally your config and cache (`~/.voiceforge`). To remove the CLI as well:
+
+```bash
+npm uninstall -g @settinghead/voiceforge
+```
 
 ## Advanced
 

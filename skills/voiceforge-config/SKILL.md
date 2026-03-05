@@ -10,7 +10,7 @@ VoiceForge generates character voice notifications for Claude Code hook events.
 
 ## Config File Location
 
-`~/.claude/hooks/voiceforge/config.json`
+`voiceforge config path` — typically `~/.voiceforge/config.json` (npm global) or `<repo>/config.json` (run from clone).
 
 ## Configuration Fields
 
@@ -41,10 +41,7 @@ VoiceForge generates character voice notifications for Claude Code hook events.
 
 When the user asks to configure VoiceForge:
 
-1. **Read** the current config:
-   ```
-   Read ~/.claude/hooks/voiceforge/config.json
-   ```
+1. **Read** the current config (path may vary; use `voiceforge config path` or try `~/.voiceforge/config.json`):
 
 2. **Edit** values using the Edit tool on that file.
 
@@ -65,7 +62,6 @@ Or edit `active_pack` in config.json directly. Available packs: `sc1-adjutant`, 
 To clear the TTS audio cache (e.g., after changing voice):
 
 ```bash
-rm -f ~/.claude/hooks/voiceforge/cache/*.wav
+rm -f ~/.voiceforge/cache/*.wav
 ```
-
-This forces VoiceForge to regenerate audio on next use.
+(If config path is elsewhere, cache is in the same directory as config, under `cache/`.)

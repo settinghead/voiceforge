@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 
@@ -98,5 +98,14 @@ export function installSkill() {
   mkdirSync(SKILL_DEST_DIR, { recursive: true });
   const content = readFileSync(SKILL_SRC, "utf-8");
   writeFileSync(join(SKILL_DEST_DIR, "SKILL.md"), content);
+  return true;
+}
+
+/**
+ * Remove the voiceforge-config skill from ~/.claude/skills/.
+ */
+export function removeSkill() {
+  if (!existsSync(SKILL_DEST_DIR)) return false;
+  rmSync(SKILL_DEST_DIR, { recursive: true });
   return true;
 }
