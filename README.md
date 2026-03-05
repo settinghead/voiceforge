@@ -72,7 +72,7 @@ flowchart TD
 |--------|-------|---------|-------|
 | **Node.js** | 18+ | 18+ | 18+ |
 | **Audio playback** | Built-in (`afplay`) | [FFmpeg](https://ffmpeg.org/download.html) — `ffplay` on PATH | [FFmpeg](https://ffmpeg.org/) — `ffplay` on PATH |
-| **Echo / normalize** | FFmpeg + SoX (optional) | FFmpeg + SoX (optional) | FFmpeg + SoX (optional) |
+| **Audio effects** | FFmpeg + SoX (optional) | FFmpeg + SoX (optional) | FFmpeg + SoX (optional) |
 | **Install method** | `install.sh` or npm | npm only (no bash script) | `install.sh` or npm |
 
 > **🔔 Visual notifications** — VoiceForge shows a popup with each phrase (no extra install). On **macOS** you can use a custom overlay or the system Notification Center; on **Windows/Linux** you get system toasts. Turn notifications off or switch style anytime with:
