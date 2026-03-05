@@ -1,7 +1,7 @@
 
 <p align="center">
   <a href="https://youtu.be/-aiSZnGNyE4">
-    <img src="assets/demo-thumbnail.png" alt="VoiceForge Demo" width="100%" />
+    <img src="https://raw.githubusercontent.com/settinghead/voiceforge/main/assets/demo-thumbnail.png" alt="VoiceForge Demo" width="100%" />
   </a>
 </p>
 
@@ -20,14 +20,14 @@ VoiceForge fixes that. Each session speaks to you in a distinct character voice 
 
 | | Pack ID | Voice | Source | Status |
 |---|---------|-------|--------|--------|
-| <img src="assets/sc1-adjutant.gif" width="48" height="48" /> | `sc1-adjutant` | **SC1 Adjutant** | StarCraft | ✅ Available |
-| <img src="assets/sc2-adjutant.jpg" width="48" height="48" /> | `sc2-adjutant` | **SC2 Adjutant** | StarCraft II | ✅ Available |
-| <img src="assets/red-alert-eva.png" width="48" height="48" /> | `red-alert-eva` | **EVA** | Command & Conquer: Red Alert | ✅ Available |
-| <img src="assets/sc1-kerrigan.gif" width="48" height="48" /> | `sc1-kerrigan` | **SC1 Kerrigan** | StarCraft | ✅ Available |
-| <img src="assets/sc2-kerrigan.jpg" width="48" height="48" /> | `sc2-kerrigan` | **SC2 Kerrigan** | StarCraft II | ✅ Available |
-| <img src="assets/sc1-protoss-advisor.jpg" width="48" height="48" /> | `sc1-protoss-advisor` | **Protoss Advisor** | StarCraft | ✅ Available |
-| <img src="assets/ss1-shodan.png" width="48" height="48" /> | `ss1-shodan` | **SHODAN** | System Shock | ✅ Available |
-| <img src="assets/hl-hev-suit.png" width="48" height="48" /> | `hl-hev-suit` | **HEV Suit** | Half-Life | ✅ Available |
+| <img src="https://raw.githubusercontent.com/settinghead/voiceforge/main/assets/sc1-adjutant.gif" width="48" height="48" /> | `sc1-adjutant` | **SC1 Adjutant** | StarCraft | ✅ Available |
+| <img src="https://raw.githubusercontent.com/settinghead/voiceforge/main/assets/sc2-adjutant.jpg" width="48" height="48" /> | `sc2-adjutant` | **SC2 Adjutant** | StarCraft II | ✅ Available |
+| <img src="https://raw.githubusercontent.com/settinghead/voiceforge/main/assets/red-alert-eva.png" width="48" height="48" /> | `red-alert-eva` | **EVA** | Command & Conquer: Red Alert | ✅ Available |
+| <img src="https://raw.githubusercontent.com/settinghead/voiceforge/main/assets/sc1-kerrigan.gif" width="48" height="48" /> | `sc1-kerrigan` | **SC1 Kerrigan** | StarCraft | ✅ Available |
+| <img src="https://raw.githubusercontent.com/settinghead/voiceforge/main/assets/sc2-kerrigan.jpg" width="48" height="48" /> | `sc2-kerrigan` | **SC2 Kerrigan** | StarCraft II | ✅ Available |
+| <img src="https://raw.githubusercontent.com/settinghead/voiceforge/main/assets/sc1-protoss-advisor.jpg" width="48" height="48" /> | `sc1-protoss-advisor` | **Protoss Advisor** | StarCraft | ✅ Available |
+| <img src="https://raw.githubusercontent.com/settinghead/voiceforge/main/assets/ss1-shodan.png" width="48" height="48" /> | `ss1-shodan` | **SHODAN** | System Shock | ✅ Available |
+| <img src="https://raw.githubusercontent.com/settinghead/voiceforge/main/assets/hl-hev-suit.png" width="48" height="48" /> | `hl-hev-suit` | **HEV Suit** | Half-Life | ✅ Available |
 
 
 **More coming soon** — [Request a voice](https://github.com/settinghead/voiceforge/issues/new?title=Voice+request%3A+%5BCharacter+Name%5D&body=**Character%3A**+%0A**Game%2FSource%3A**+%0A**Why%3A**+)
