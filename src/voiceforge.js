@@ -13,8 +13,20 @@ import { extractContext, generatePhrase } from "./llm.js";
 import { speakPhrase } from "./audio.js";
 import { showOverlay } from "./overlay.js";
 import { loadPack } from "./packs.js";
-import { STATE_DIR, LOG_FILE } from "./paths.js";
+import { STATE_DIR, LOG_FILE, OPENCLAW_DEBUG_LOG } from "./paths.js";
 import { appendLog } from "./activity-log.js";
+
+function debugLog(msg, data) {
+  try {
+    mkdirSync(STATE_DIR, { recursive: true });
+    const line = data !== undefined
+      ? `[${new Date().toISOString()}] ${msg} ${JSON.stringify(data)}\n`
+      : `[${new Date().toISOString()}] ${msg}\n`;
+    appendFileSync(OPENCLAW_DEBUG_LOG, line);
+  } catch {
+    // best-effort
+  }
+}
 
 function logFallback(eventName, reason, detail) {
   try {
@@ -34,18 +46,29 @@ function logFallback(eventName, reason, detail) {
  * Exported so it can be called from the CLI `voiceforge hook` command.
  */
 export async function processHookEvent(eventData) {
+  debugLog("processHookEvent entered", { hook_event_name: eventData.hook_event_name, cwd: eventData.cwd });
   const cwd = eventData.cwd || "";
   const config = loadConfig(cwd || undefined);
-  if (config.enabled === false) return;
+  if (config.enabled === false) {
+    debugLog("processHookEvent skip: config.enabled === false");
+    return;
+  }
 
   const eventName = eventData.hook_event_name || "";
   const category = EVENT_MAP[eventName];
-  if (!category) return;
+  if (!category) {
+    debugLog("processHookEvent skip: no category for event", { eventName });
+    return;
+  }
 
   // Check if category is enabled
   const categories = config.categories || {};
-  if (categories[category] === false) return;
+  if (categories[category] === false) {
+    debugLog("processHookEvent skip: category disabled", { category });
+    return;
+  }
 
+  debugLog("processHookEvent processing", { eventName, category });
   // Load active voice pack
   const pack = loadPack(config);
   const projectName = cwd ? basename(cwd) : "";
@@ -88,6 +111,7 @@ export async function processHookEvent(eventData) {
 
   const packId = config.active_pack || "sc2-adjutant";
   const phraseOneLine = phrase.replace(/\s+/g, " ").slice(0, 120);
+  debugLog("processHookEvent speaking", { phrase: phraseOneLine });
   appendLog(
     `[${new Date().toISOString()}] event=${eventName} category=${category} phrase=${phraseOneLine}${phrase.length > 120 ? "…" : ""}`,
     config,
@@ -102,6 +126,7 @@ export async function processHookEvent(eventData) {
   });
 
   await speakPhrase(phrase, config, pack);
+  debugLog("processHookEvent done (speakPhrase returned)");
 }
 
 async function main() {

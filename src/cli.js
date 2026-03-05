@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { readFileSync, existsSync, watchFile, rmSync } from "fs";
+import { readFileSync, existsSync, watchFile, rmSync, appendFileSync, mkdirSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { homedir } from "os";
@@ -13,7 +13,7 @@ import { speakPhrase } from "./audio.js";
 import { showOverlay } from "./overlay.js";
 import { loadPack, listPacks } from "./packs.js";
 import { formatCost, resetUsage } from "./cost.js";
-import { CONFIG_PATH, STATE_DIR, LOG_FILE, MAIN_LOG_FILE } from "./paths.js";
+import { CONFIG_PATH, STATE_DIR, LOG_FILE, MAIN_LOG_FILE, OPENCLAW_DEBUG_LOG } from "./paths.js";
 import { processHookEvent } from "./voiceforge.js";
 import { unregisterHooks, removeSkill } from "./hooks.js";
 import { unregisterCursorHooks } from "./cursor-hooks.js";
@@ -505,9 +505,16 @@ async function runUninstall() {
       let input = "";
       for await (const chunk of process.stdin) { input += chunk; }
       try {
+        mkdirSync(STATE_DIR, { recursive: true });
+        appendFileSync(OPENCLAW_DEBUG_LOG, `[${new Date().toISOString()}] voiceforge hook stdin received length=${input.length} raw=${input.slice(0, 200)}\n`);
         const eventData = JSON.parse(input);
+        appendFileSync(OPENCLAW_DEBUG_LOG, `[${new Date().toISOString()}] voiceforge hook parsed eventData ${JSON.stringify(eventData)}\n`);
         await processHookEvent(eventData);
-      } catch {
+      } catch (err) {
+        try {
+          mkdirSync(STATE_DIR, { recursive: true });
+          appendFileSync(OPENCLAW_DEBUG_LOG, `[${new Date().toISOString()}] voiceforge hook parse/process error ${err && err.message}\n`);
+        } catch {}
         // invalid input — ignore silently
       }
       break;

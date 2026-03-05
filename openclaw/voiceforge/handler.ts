@@ -9,6 +9,22 @@
  */
 
 import { spawn } from "child_process";
+import { appendFileSync, mkdirSync } from "fs";
+import { join } from "path";
+import { homedir } from "os";
+
+const OPENCLAW_DEBUG_LOG = join(homedir(), ".voiceforge", "openclaw-debug.log");
+function debugLog(msg, data) {
+  try {
+    mkdirSync(join(homedir(), ".voiceforge"), { recursive: true });
+    const line = data !== undefined
+      ? `[${new Date().toISOString()}] [openclaw-handler] ${msg} ${JSON.stringify(data)}\n`
+      : `[${new Date().toISOString()}] [openclaw-handler] ${msg}\n`;
+    appendFileSync(OPENCLAW_DEBUG_LOG, line);
+  } catch {
+    // best-effort
+  }
+}
 
 // OpenClaw event type:action -> VoiceForge hook_event_name
 const EVENT_MAP: Record<string, string> = {
@@ -26,8 +42,12 @@ const handler = async (event: {
   [key: string]: unknown;
 }) => {
   const key = `${event.type}:${event.action}`;
+  debugLog("handler invoked", { key, type: event.type, action: event.action });
   const hookEventName = EVENT_MAP[key];
-  if (!hookEventName) return;
+  if (!hookEventName) {
+    debugLog("handler skip: no mapping for event", { key });
+    return;
+  }
 
   const translated: Record<string, unknown> = {
     hook_event_name: hookEventName,
@@ -47,15 +67,21 @@ const handler = async (event: {
     translated.last_assistant_message = event.context.content;
   }
 
+  debugLog("spawning voiceforge hook", { translated });
   // Spawn `voiceforge hook` with translated event on stdin (fire-and-forget)
   const child = spawn("voiceforge", ["hook"], {
     stdio: ["pipe", "ignore", "ignore"],
     detached: true,
   });
 
+  child.on("error", (err) => {
+    debugLog("voiceforge spawn error", { message: err.message, code: (err as NodeJS.ErrnoException).code });
+  });
+
   child.stdin.write(JSON.stringify(translated));
   child.stdin.end();
   child.unref();
+  debugLog("voiceforge hook spawned, stdin ended");
 };
 
 export default handler;

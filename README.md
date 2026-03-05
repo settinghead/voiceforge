@@ -102,7 +102,7 @@ npm install -g @settinghead/voiceforge
 voiceforge setup
 ```
 
-The setup wizard configures your LLM provider, API key, voice pack, TTS server, Claude Code hooks, and optionally Cursor hooks. Run `voiceforge setup` again anytime to reconfigure.
+The setup wizard configures your LLM provider, API key, voice pack, TTS server, and **which platforms** get hooks. In Step 5 you choose one or more of: **Claude Code**, **OpenClaw**, **Cursor** (checkbox — you can select none, one, or several). Run `voiceforge setup` again anytime to reconfigure or add another platform.
 
 3. **For spoken voice**, start at least one TTS backend (see [Qwen3-TTS](qwen3-tts-experiment/README.md) or [Chatterbox](docs/chatterbox-tts.md)), then run `voiceforge setup` again so the wizard can detect it.
 
@@ -136,6 +136,8 @@ Or from inside a Claude Code / OpenClaw session, just ask your agent:
 
 Configuration is shared with VoiceForge — run `voiceforge setup` to configure. To uninstall: `voiceforge uninstall`. To remove only the OpenClaw hook, delete `~/.openclaw/hooks/voiceforge`.
 
+**Debugging:** When the OpenClaw hook or `voiceforge hook` runs, debug lines are appended to `~/.voiceforge/openclaw-debug.log`. Use `tail -f ~/.voiceforge/openclaw-debug.log` while triggering an OpenClaw event (e.g. `openclaw agent --to <E.164> --message "Hi"`) to confirm the handler is invoked and voiceforge receives the event. Restart the OpenClaw gateway after changing the hook so it reloads the handler.
+
 ## Cursor Integration
 
 VoiceForge works with [Cursor](https://cursor.com/docs/agent/hooks) Agent (Cmd+K / Agent Chat). Install hooks during setup:
@@ -144,7 +146,7 @@ VoiceForge works with [Cursor](https://cursor.com/docs/agent/hooks) Agent (Cmd+K
 voiceforge setup
 ```
 
-When prompted **"Install Cursor hooks?"**, choose **Yes** to register VoiceForge in `~/.cursor/hooks.json`. Restart Cursor for hooks to take effect.
+When prompted **"Which platforms do you want to install hooks for?"**, check **Cursor** (and optionally **Claude Code** and **OpenClaw**). Restart Cursor for hooks to take effect.
 
 Or add the hooks manually to `~/.cursor/hooks.json`:
 
@@ -187,7 +189,7 @@ Configuration lives at `config.json` (run `voiceforge config path` to find it). 
 | `tts_backend` | string | `"chatterbox"` | TTS backend: `chatterbox` or `qwen` |
 | `active_pack` | string | `"sc2-adjutant"` | Active voice pack ID (see `packs/`) |
 | `volume` | number | `1.0` | Playback volume (0.0–1.0) |
-| `categories` | object | — | Enable/disable per event category |
+| `categories` | object | — | Enable/disable per event category (see [Integrations and hooks](#integrations-and-hooks)) |
 | `logging` | boolean | `true` | Activity log: one line per event to `~/.voiceforge/voiceforge.log` (retention: 30 days or 5MB, whichever comes first) |
 | `error_log` | boolean | `false` | Error/fallback log: when LLM fails or no context, append to `~/.voiceforge/fallback.log` |
 
@@ -197,6 +199,22 @@ Configuration lives at `config.json` (run `voiceforge config path` to find it). 
 - **Error log** (default **off**): When the LLM is not used or fails (no context, timeout, API error), VoiceForge uses a fallback phrase; if **error log** is enabled, a line is appended to `~/.voiceforge/fallback.log`. Only contextual events (Stop, PostToolUseFailure) produce entries. Turn on with `voiceforge log error on`, off with `voiceforge log error off`. Paths: `voiceforge log path` (activity), `voiceforge log error-path` (error).
 
 You can also use the `/voiceforge-config` slash command in Claude Code to manage configuration interactively.
+
+### Integrations and hooks
+
+- **Which platforms (Claude Code, Cursor, OpenClaw)?**  
+  You choose during **setup**: Step 5 asks “Which platforms do you want to install hooks for?” with a **checkbox** for each. You can select none, one, or all. Run `voiceforge setup` again to add hooks for a platform you skipped. To **disable** an integration (stop VoiceForge from that platform without changing others), remove that platform’s hooks: run `voiceforge uninstall` to remove all, or edit the platform config by hand (`~/.claude/settings.json`, `~/.cursor/hooks.json`, or delete `~/.openclaw/hooks/voiceforge`). There is no per-integration on/off in config — only the global **`enabled`** flag turns all VoiceForge processing on or off.
+
+- **Which hook events (categories)?**  
+  Each platform registers a fixed set of hook events. You can turn **categories** on or off so that certain event types are ignored. Categories are shared across all platforms (same setting for Claude Code, Cursor, and OpenClaw). Set them in config or via CLI:
+
+  ```bash
+  voiceforge config set categories.task.complete true
+  voiceforge config set categories.task.acknowledge false
+  voiceforge config set categories.session.start true
+  ```
+
+  Category keys: `session.start`, `session.end`, `task.complete`, `task.acknowledge`, `task.error`, `input.required`, `resource.limit`, `notification`. See [Event categories](#event-categories) for which hook event maps to which category. Omitted categories default to enabled; set to `false` to disable.
 
 ## CLI
 
@@ -219,6 +237,7 @@ voiceforge log error on | off     # Enable or disable error logging
 voiceforge test "<text>"          # Test full pipeline: LLM generates in-character phrase, TTS synthesizes speech, then plays audio
 voiceforge cost                   # Show accumulated token usage and estimated cost
 voiceforge cost reset             # Clear the usage log
+voiceforge uninstall              # Remove hooks from Claude Code, Cursor, and optionally OpenClaw/config
 voiceforge help                   # Show help
 voiceforge --version              # Show version
 ```
