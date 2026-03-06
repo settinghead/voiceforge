@@ -1,13 +1,13 @@
 # Cursor Integration
 
-VoiceForge speaks character voice notifications when using [Cursor](https://cursor.com) Agent (Cmd+K or Agent Chat). This page is a reference for Cursor-specific setup and troubleshooting.
+Voxlert speaks character voice notifications when using [Cursor](https://cursor.com) Agent (Cmd+K or Agent Chat). This page is a reference for Cursor-specific setup and troubleshooting.
 
 ## How It Works
 
-Cursor runs hook scripts when certain agent events occur. VoiceForge registers a single command, `voiceforge cursor-hook`, which:
+Cursor runs hook scripts when certain agent events occur. Voxlert registers a single command, `voxlert cursor-hook`, which:
 
 1. Receives Cursor’s JSON payload on stdin
-2. Maps Cursor hook names (camelCase) to VoiceForge events (PascalCase)
+2. Maps Cursor hook names (camelCase) to Voxlert events (PascalCase)
 3. Optionally reads the conversation transcript on **stop** to generate an in-character summary
 4. Runs the same pipeline as Claude Code (LLM phrase or fallback → TTS → playback)
 5. Returns `{}` on stdout so Cursor receives valid JSON
@@ -17,11 +17,11 @@ Cursor runs hook scripts when certain agent events occur. VoiceForge registers a
 - **User-level (all workspaces):** `~/.cursor/hooks.json`
 - **Project-level (single repo):** `<project-root>/.cursor/hooks.json`
 
-VoiceForge’s setup wizard installs user-level hooks. To restrict VoiceForge to one project, copy the hook entries into that project’s `.cursor/hooks.json` instead.
+Voxlert’s setup wizard installs user-level hooks. To restrict Voxlert to one project, copy the hook entries into that project’s `.cursor/hooks.json` instead.
 
 ## Events We Subscribe To
 
-| Cursor Hook           | VoiceForge Event     | Category        |
+| Cursor Hook           | Voxlert Event     | Category        |
 |-----------------------|----------------------|-----------------|
 | `sessionStart`        | SessionStart         | session.start   |
 | `sessionEnd`          | SessionEnd           | session.end     |
@@ -29,14 +29,14 @@ VoiceForge’s setup wizard installs user-level hooks. To restrict VoiceForge to
 | `postToolUseFailure`  | PostToolUseFailure   | task.error      |
 | `preCompact`          | PreCompact           | resource.limit  |
 
-Turn categories on or off in VoiceForge config (`voiceforge config set categories.<name> true|false` or `voiceforge setup`).
+Turn categories on or off in Voxlert config (`voxlert config set categories.<name> true|false` or `voxlert setup`).
 
 ## Install
 
 **During setup:**
 
 ```bash
-voiceforge setup
+voxlert setup
 ```
 
 When prompted **"Install Cursor hooks?"**, choose **Yes**.
@@ -47,11 +47,11 @@ When prompted **"Install Cursor hooks?"**, choose **Yes**.
 {
   "version": 1,
   "hooks": {
-    "sessionStart": [{ "command": "voiceforge cursor-hook", "timeout": 10 }],
-    "sessionEnd": [{ "command": "voiceforge cursor-hook", "timeout": 10 }],
-    "stop": [{ "command": "voiceforge cursor-hook", "timeout": 10 }],
-    "postToolUseFailure": [{ "command": "voiceforge cursor-hook", "timeout": 10 }],
-    "preCompact": [{ "command": "voiceforge cursor-hook", "timeout": 10 }]
+    "sessionStart": [{ "command": "voxlert cursor-hook", "timeout": 10 }],
+    "sessionEnd": [{ "command": "voxlert cursor-hook", "timeout": 10 }],
+    "stop": [{ "command": "voxlert cursor-hook", "timeout": 10 }],
+    "postToolUseFailure": [{ "command": "voxlert cursor-hook", "timeout": 10 }],
+    "preCompact": [{ "command": "voxlert cursor-hook", "timeout": 10 }]
   }
 }
 ```
@@ -60,36 +60,36 @@ Restart Cursor after installing or editing hooks.
 
 ## Uninstall
 
-Remove VoiceForge from Cursor (and Claude Code) and optionally delete config/cache:
+Remove Voxlert from Cursor (and Claude Code) and optionally delete config/cache:
 
 ```bash
-voiceforge uninstall
+voxlert uninstall
 ```
 
-To remove only Cursor hooks, edit `~/.cursor/hooks.json` and delete the entries that call `voiceforge cursor-hook`.
+To remove only Cursor hooks, edit `~/.cursor/hooks.json` and delete the entries that call `voxlert cursor-hook`.
 
 ## Configuration
 
-VoiceForge uses the same config for Cursor as for Claude Code (and for OpenClaw — see [OpenClaw integration](openclaw.md)):
+Voxlert uses the same config for Cursor as for Claude Code (and for OpenClaw — see [OpenClaw integration](openclaw.md)):
 
-- Config path: `voiceforge config path` (typically `~/.voiceforge/config.json` or install-dir `config.json`)
-- Toggle categories, voice pack, volume, and LLM/TTS via `voiceforge config` or `voiceforge setup`
+- Config path: `voxlert config path` (typically `~/.voxlert/config.json` or install-dir `config.json`)
+- Toggle categories, voice pack, volume, and LLM/TTS via `voxlert config` or `voxlert setup`
 
 ## Troubleshooting
 
 - **No voice when agent stops / starts**
-  - Confirm hooks are installed: open `~/.cursor/hooks.json` and check for `voiceforge cursor-hook` entries.
+  - Confirm hooks are installed: open `~/.cursor/hooks.json` and check for `voxlert cursor-hook` entries.
   - Restart Cursor after changing `hooks.json`.
   - In Cursor: **Settings → Hooks** (or the Hooks output channel) to see whether hooks ran and any errors.
 
-- **`voiceforge cursor-hook` not found**
-  - Install VoiceForge globally so the command is on PATH: `npm install -g @settinghead/voiceforge`, then run `voiceforge setup`.
-  - Or use the full path to the script in `hooks.json`, e.g. `"/path/to/voiceforge/repo/node_modules/.bin/voiceforge" cursor-hook` (adjust for your install).
+- **`voxlert cursor-hook` not found**
+  - Install Voxlert globally so the command is on PATH: `npm install -g @settinghead/voxlert`, then run `voxlert setup`.
+  - Or use the full path to the script in `hooks.json`, e.g. `"/path/to/voxlert/repo/node_modules/.bin/voxlert" cursor-hook` (adjust for your install).
 
 - **Test the adapter manually**
   - Echo a minimal Cursor payload and pipe to the CLI:
     ```bash
-    echo '{"hook_event_name":"stop","workspace_roots":["/tmp"]}' | voiceforge cursor-hook
+    echo '{"hook_event_name":"stop","workspace_roots":["/tmp"]}' | voxlert cursor-hook
     ```
   - You should see `{}` on stdout and hear a fallback phrase (or an LLM phrase if transcript/context is available).
 

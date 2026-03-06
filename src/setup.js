@@ -1,5 +1,5 @@
 /**
- * Interactive setup wizard for VoiceForge.
+ * Interactive setup wizard for Voxlert.
  * Handles LLM provider selection, API key input, voice pack picking,
  * TTS server detection, and Claude Code hook registration.
  */
@@ -18,7 +18,7 @@ import { listPacks } from "./packs.js";
 import { CONFIG_PATH, PACKS_DIR, CACHE_DIR, IS_NPM_GLOBAL, BUNDLED_PACKS_DIR, SCRIPT_DIR } from "./paths.js";
 import { PACK_REGISTRY, DEFAULT_DOWNLOAD_PACK_IDS, getPackRegistryBaseUrl } from "./pack-registry.js";
 import { LLM_PROVIDERS, getProvider } from "./providers.js";
-import { registerHooks, installSkill, unregisterHooks, hasVoiceForgeHooks, hasInstalledSkill, removeSkill } from "./hooks.js";
+import { registerHooks, installSkill, unregisterHooks, hasVoxlertHooks, hasInstalledSkill, removeSkill } from "./hooks.js";
 import { registerCursorHooks, unregisterCursorHooks, hasCursorHooks } from "./cursor-hooks.js";
 import { registerCodexNotify, getCodexConfigPath, unregisterCodexNotify, hasCodexNotify } from "./codex-config.js";
 import { printSetupHeader, printStep, printStatus, printSuccess, printWarning, highlight } from "./setup-ui.js";
@@ -203,7 +203,7 @@ export async function runSetup() {
   const currentProvider = getProvider(currentBackend);
   const currentModel = config.llm_model || currentProvider?.defaultModel || "default";
   const installedPlatforms = [];
-  if (hasVoiceForgeHooks() || hasInstalledSkill()) installedPlatforms.push("Claude");
+  if (hasVoxlertHooks() || hasInstalledSkill()) installedPlatforms.push("Claude");
   if (hasCursorHooks()) installedPlatforms.push("Cursor");
   if (hasCodexNotify()) installedPlatforms.push("Codex");
   await printSetupHeader(config, installedPlatforms);
@@ -277,7 +277,7 @@ export async function runSetup() {
         });
         if (!proceed) {
           apiKey = null;
-          printWarning("Skipped. Set it later with: voiceforge config set llm_api_key <key>");
+          printWarning("Skipped. Set it later with: voxlert config set llm_api_key <key>");
           console.log("");
         } else {
           console.log("");
@@ -314,7 +314,7 @@ export async function runSetup() {
   // --- Step 3: Download voice packs (from GitHub) ---
   console.log("");
   printStep(3, "Download voice packs");
-  printStatus("Source", "VoiceForge GitHub repo");
+  printStatus("Source", "Voxlert GitHub repo");
   console.log("");
 
   mkdirSync(PACKS_DIR, { recursive: true });
@@ -426,7 +426,7 @@ export async function runSetup() {
     printSuccess("Using Chatterbox.");
   } else {
     console.log("");
-    printWarning("No TTS server detected. VoiceForge will still work with fallback phrases.");
+    printWarning("No TTS server detected. Voxlert will still work with fallback phrases.");
     printStatus("Chatterbox", "https://github.com/resemble-ai/chatterbox");
     printStatus("Qwen TTS", "qwen3-tts-server/ directory");
     console.log("");
@@ -441,7 +441,7 @@ export async function runSetup() {
       name: "Claude Code",
       value: "claude",
       description: "Register in ~/.claude/settings.json + install skill",
-      checked: hasVoiceForgeHooks() || hasInstalledSkill(),
+      checked: hasVoxlertHooks() || hasInstalledSkill(),
     },
     {
       name: "Cursor",
@@ -464,16 +464,16 @@ export async function runSetup() {
   });
 
   // Determine the hook command for Claude Code (used when "claude" is selected)
-  const hookCommand = IS_NPM_GLOBAL ? "voiceforge hook" : join(SCRIPT_DIR, "voiceforge.sh");
+  const hookCommand = IS_NPM_GLOBAL ? "voxlert hook" : join(SCRIPT_DIR, "voxlert.sh");
   const codexNotifyCommand = IS_NPM_GLOBAL
-    ? ["voiceforge", "codex-notify"]
+    ? ["voxlert", "codex-notify"]
     : [process.execPath, join(SCRIPT_DIR, "src", "cli.js"), "codex-notify"];
 
   if (selectedPlatforms.includes("claude")) {
     const hookCount = registerHooks(hookCommand);
     printSuccess(`Registered ${hookCount} hook events in ~/.claude/settings.json`);
     if (installSkill()) {
-      printSuccess("Installed voiceforge-config skill");
+      printSuccess("Installed voxlert-config skill");
     }
   } else {
     const removed = unregisterHooks();
@@ -482,14 +482,14 @@ export async function runSetup() {
       printWarning(`Removed ${removed} hook(s) from ~/.claude/settings.json`);
     }
     if (skillRemoved) {
-      printWarning("Removed voiceforge-config skill");
+      printWarning("Removed voxlert-config skill");
     }
   }
 
   if (selectedPlatforms.includes("cursor")) {
-    const cursorCount = registerCursorHooks("voiceforge cursor-hook");
+    const cursorCount = registerCursorHooks("voxlert cursor-hook");
     printSuccess(`Registered ${cursorCount} hook events in ~/.cursor/hooks.json`);
-    printStatus("Next", "Restart Cursor to hear VoiceForge in Agent Chat.");
+    printStatus("Next", "Restart Cursor to hear Voxlert in Agent Chat.");
   } else {
     const cursorRemoved = unregisterCursorHooks();
     if (cursorRemoved > 0) {
@@ -508,7 +508,7 @@ export async function runSetup() {
   }
 
   if (selectedPlatforms.length === 0) {
-    printWarning("No platforms selected. Run 'voiceforge setup' again to install hooks later.");
+    printWarning("No platforms selected. Run 'voxlert setup' again to install hooks later.");
   }
 
   // --- Save config ---
@@ -528,16 +528,16 @@ export async function runSetup() {
   printStatus("Voice", config.active_pack);
   printStatus("TTS", config.tts_backend);
   console.log("");
-  console.log(`  ${highlight("Start a new session in each platform you installed to hear VoiceForge.")}`);
+  console.log(`  ${highlight("Start a new session in each platform you installed to hear Voxlert.")}`);
   if (selectedPlatforms.includes("claude")) {
     printStatus("Claude Code", "Start a new Claude Code session.");
   }
   if (selectedPlatforms.includes("cursor")) {
-    printStatus("Cursor", "Restart Cursor to hear VoiceForge in Agent Chat.");
+    printStatus("Cursor", "Restart Cursor to hear Voxlert in Agent Chat.");
   }
   if (selectedPlatforms.includes("codex")) {
     printStatus("Codex", "Start a new Codex session to pick up the notify config.");
   }
-  printStatus("Reconfigure", "voiceforge setup");
+  printStatus("Reconfigure", "voxlert setup");
   console.log("");
 }

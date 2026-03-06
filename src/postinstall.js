@@ -3,11 +3,11 @@
 // npm postinstall — prints setup instructions only, no file mutations.
 console.log(`
 ╔══════════════════════════════════════════════╗
-║          VoiceForge installed!               ║
+║          Voxlert installed!               ║
 ║                                              ║
 ║  Run the setup wizard:                       ║
 ║                                              ║
-║    voiceforge setup                          ║
+║    voxlert setup                          ║
 ║                                              ║
 ╚══════════════════════════════════════════════╝
 `);

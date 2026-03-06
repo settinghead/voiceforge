@@ -1,6 +1,6 @@
 # Installing FFmpeg (Windows & Linux)
 
-VoiceForge uses **ffplay** (from FFmpeg) for audio playback on Windows and Linux. macOS uses the built-in `afplay` and does not need FFmpeg.
+Voxlert uses **ffplay** (from FFmpeg) for audio playback on Windows and Linux. macOS uses the built-in `afplay` and does not need FFmpeg.
 
 Install FFmpeg so that `ffplay` is on your PATH.
 
@@ -24,4 +24,4 @@ Choose one:
 ffplay -version
 ```
 
-You should see version and build info. VoiceForge uses `ffplay -nodisp -autoexit` to play WAV files.
+You should see version and build info. Voxlert uses `ffplay -nodisp -autoexit` to play WAV files.

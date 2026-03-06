@@ -14,7 +14,7 @@ import { showOverlay } from "./overlay.js";
 import { loadPack, listPacks } from "./packs.js";
 import { formatCost, resetUsage } from "./cost.js";
 import { CONFIG_PATH, STATE_DIR, LOG_FILE, MAIN_LOG_FILE, HOOK_DEBUG_LOG, SCRIPT_DIR, IS_NPM_GLOBAL } from "./paths.js";
-import { processHookEvent } from "./voiceforge.js";
+import { processHookEvent } from "./voxlert.js";
 import { unregisterHooks, removeSkill } from "./hooks.js";
 import { unregisterCursorHooks } from "./cursor-hooks.js";
 import { unregisterCodexNotify, getCodexConfigPath } from "./codex-config.js";
@@ -24,39 +24,39 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf-8"));
 
 const HELP = `
-voiceforge v${pkg.version} — Game character voice notifications for Claude Code, Cursor, Codex, and OpenClaw
+voxlert v${pkg.version} — Game character voice notifications for Claude Code, Cursor, Codex, and OpenClaw
 
 Usage:
-  voiceforge setup               Interactive setup wizard (LLM, voice, TTS, hooks)
-  voiceforge hook                Process a hook event from stdin (used by Claude Code hooks)
-  voiceforge cursor-hook         Process a hook event from stdin (used by Cursor hooks)
-  voiceforge codex-notify        Process a notify payload from argv (used by OpenAI Codex notify)
-  voiceforge config              Show current configuration
-  voiceforge config show         Show current configuration
-  voiceforge config set <k> <v>  Set a config value (supports categories.X dot notation)
-  voiceforge config path         Print config file path
-  voiceforge log                  Stream activity log (tail -f style)
-  voiceforge log path            Print activity log file path
-  voiceforge log error-path      Print error/fallback log file path
-  voiceforge log on | off        Enable or disable activity logging
-  voiceforge log error on | off  Enable or disable error (fallback) logging
-  voiceforge voice               Interactive voice pack picker
-  voiceforge pack list           List available voice packs
-  voiceforge pack show           Show active pack details
-  voiceforge pack use <pack-id>  Switch active voice pack
-  voiceforge volume              Show current volume and prompt for new value
-  voiceforge volume <0-100>      Set playback volume (0 = mute, 100 = max)
-  voiceforge notification        Choose notification style (popup / system / off)
-  voiceforge test "<text>"       Run full pipeline: LLM -> TTS -> audio playback
-  voiceforge cost                Show accumulated token usage and estimated cost
-  voiceforge cost reset          Clear the usage log
-  voiceforge uninstall           Remove hooks from Claude Code, Cursor, and Codex, optionally config/cache
-  voiceforge help                Show this help message
-  voiceforge --version           Show version
+  voxlert setup               Interactive setup wizard (LLM, voice, TTS, hooks)
+  voxlert hook                Process a hook event from stdin (used by Claude Code hooks)
+  voxlert cursor-hook         Process a hook event from stdin (used by Cursor hooks)
+  voxlert codex-notify        Process a notify payload from argv (used by OpenAI Codex notify)
+  voxlert config              Show current configuration
+  voxlert config show         Show current configuration
+  voxlert config set <k> <v>  Set a config value (supports categories.X dot notation)
+  voxlert config path         Print config file path
+  voxlert log                  Stream activity log (tail -f style)
+  voxlert log path            Print activity log file path
+  voxlert log error-path      Print error/fallback log file path
+  voxlert log on | off        Enable or disable activity logging
+  voxlert log error on | off  Enable or disable error (fallback) logging
+  voxlert voice               Interactive voice pack picker
+  voxlert pack list           List available voice packs
+  voxlert pack show           Show active pack details
+  voxlert pack use <pack-id>  Switch active voice pack
+  voxlert volume              Show current volume and prompt for new value
+  voxlert volume <0-100>      Set playback volume (0 = mute, 100 = max)
+  voxlert notification        Choose notification style (popup / system / off)
+  voxlert test "<text>"       Run full pipeline: LLM -> TTS -> audio playback
+  voxlert cost                Show accumulated token usage and estimated cost
+  voxlert cost reset          Clear the usage log
+  voxlert uninstall           Remove hooks from Claude Code, Cursor, and Codex, optionally config/cache
+  voxlert help                Show this help message
+  voxlert --version           Show version
 `.trim();
 
-// Cursor hook event name (camelCase) -> VoiceForge internal name (PascalCase)
-const CURSOR_TO_VOICEFORGE_EVENT = {
+// Cursor hook event name (camelCase) -> Voxlert internal name (PascalCase)
+const CURSOR_TO_VOXLERT_EVENT = {
   sessionStart: "SessionStart",
   sessionEnd: "SessionEnd",
   stop: "Stop",
@@ -64,7 +64,7 @@ const CURSOR_TO_VOICEFORGE_EVENT = {
   preCompact: "PreCompact",
 };
 
-// Codex notify type -> VoiceForge event (only agent-turn-complete is supported for now)
+// Codex notify type -> Voxlert event (only agent-turn-complete is supported for now)
 const CODEX_NOTIFY_TYPE_TO_EVENT = {
   "agent-turn-complete": "Stop",
 };
@@ -131,7 +131,7 @@ async function runCursorHook() {
     return;
   }
   const cursorEvent = payload.hook_event_name || "";
-  const ourEvent = CURSOR_TO_VOICEFORGE_EVENT[cursorEvent];
+  const ourEvent = CURSOR_TO_VOXLERT_EVENT[cursorEvent];
   if (!ourEvent) {
     process.stdout.write("{}\n");
     return;
@@ -163,7 +163,7 @@ async function runCodexNotify() {
   const argvTail = process.argv.slice(3);
   const rawArg = argvTail[0] === "--" ? argvTail[1] : argvTail[0];
   const raw = typeof rawArg === "string" ? rawArg : "";
-  appendHookDebugLine(`voiceforge codex-notify runtime ${stringifyForLog({
+  appendHookDebugLine(`voxlert codex-notify runtime ${stringifyForLog({
     pid: process.pid,
     ppid: process.ppid,
     execPath: process.execPath,
@@ -173,18 +173,18 @@ async function runCodexNotify() {
     isNpmGlobal: IS_NPM_GLOBAL,
     configPath: CONFIG_PATH,
     codexConfigPath: getCodexConfigPath(),
-    envKeys: listEnvKeys(["CODEX", "VOICEFORGE", "OPENAI"]),
+    envKeys: listEnvKeys(["CODEX", "VOXLERT", "OPENAI"]),
   })}`);
-  appendHookDebugLine(`voiceforge codex-notify argv_tail=${stringifyForLog(argvTail)} raw=${stringifyForLog(raw)}`);
+  appendHookDebugLine(`voxlert codex-notify argv_tail=${stringifyForLog(argvTail)} raw=${stringifyForLog(raw)}`);
   if (!raw || typeof raw !== "string") {
-    appendHookDebugLine("voiceforge codex-notify exiting: missing raw payload");
+    appendHookDebugLine("voxlert codex-notify exiting: missing raw payload");
     process.exit(0);
   }
   let payload;
   try {
     payload = JSON.parse(raw);
-    appendHookDebugLine(`voiceforge codex-notify parsed payload ${stringifyForLog(payload)}`);
-    appendHookDebugLine(`voiceforge codex-notify payload summary ${stringifyForLog({
+    appendHookDebugLine(`voxlert codex-notify parsed payload ${stringifyForLog(payload)}`);
+    appendHookDebugLine(`voxlert codex-notify payload summary ${stringifyForLog({
       type: payload.type || "",
       cwd: payload.cwd || "",
       hasLastAssistantMessage: Boolean(payload["last-assistant-message"] || payload.last_assistant_message),
@@ -195,13 +195,13 @@ async function runCodexNotify() {
       turnId: payload["turn-id"] || payload.turn_id || "",
     })}`);
   } catch (err) {
-    appendHookDebugLine(`voiceforge codex-notify parse error ${err && err.message}`);
+    appendHookDebugLine(`voxlert codex-notify parse error ${err && err.message}`);
     process.exit(0);
   }
   const codexType = payload.type || "";
   const ourEvent = CODEX_NOTIFY_TYPE_TO_EVENT[codexType];
   if (!ourEvent) {
-    appendHookDebugLine(`voiceforge codex-notify exiting: unsupported type=${codexType || "(empty)"}`);
+    appendHookDebugLine(`voxlert codex-notify exiting: unsupported type=${codexType || "(empty)"}`);
     process.exit(0);
   }
   const cwd = payload.cwd || "";
@@ -214,12 +214,12 @@ async function runCodexNotify() {
     codex_thread_id: payload["thread-id"] || payload.thread_id || "",
     codex_turn_id: payload["turn-id"] || payload.turn_id || "",
   };
-  appendHookDebugLine(`voiceforge codex-notify translated event ${stringifyForLog(translated)}`);
+  appendHookDebugLine(`voxlert codex-notify translated event ${stringifyForLog(translated)}`);
   try {
     await processHookEvent(translated);
-    appendHookDebugLine(`voiceforge codex-notify processHookEvent completed type=${codexType} event=${ourEvent}`);
+    appendHookDebugLine(`voxlert codex-notify processHookEvent completed type=${codexType} event=${ourEvent}`);
   } catch (err) {
-    appendHookDebugLine(`voiceforge codex-notify processHookEvent error ${err && err.message}`);
+    appendHookDebugLine(`voxlert codex-notify processHookEvent error ${err && err.message}`);
     // best-effort: exit 0 so Codex doesn't treat as failure
   }
   process.exit(0);
@@ -299,7 +299,7 @@ function showConfig() {
 
 function configSet(key, value) {
   if (!key) {
-    console.error("Usage: voiceforge config set <key> <value>");
+    console.error("Usage: voxlert config set <key> <value>");
     process.exit(1);
   }
 
@@ -329,7 +329,7 @@ function configSet(key, value) {
 
 async function testPipeline(text, pack) {
   if (!text) {
-    console.error("Usage: voiceforge test \"<text>\"");
+    console.error("Usage: voxlert test \"<text>\"");
     process.exit(1);
   }
 
@@ -453,7 +453,7 @@ async function greetWithVoice() {
 
 async function packUse(packId) {
   if (!packId) {
-    console.error("Usage: voiceforge pack use <pack-id>");
+    console.error("Usage: voxlert pack use <pack-id>");
     process.exit(1);
   }
   if (packId === "random") {
@@ -544,7 +544,7 @@ async function notificationPick() {
 }
 
 async function runUninstall() {
-  console.log("Removing VoiceForge hooks and skill...\n");
+  console.log("Removing Voxlert hooks and skill...\n");
 
   const claudeRemoved = unregisterHooks();
   if (claudeRemoved > 0) {
@@ -563,11 +563,11 @@ async function runUninstall() {
 
   const skillRemoved = removeSkill();
   if (skillRemoved) {
-    console.log("  Removed voiceforge-config skill");
+    console.log("  Removed voxlert-config skill");
   }
 
   if (claudeRemoved === 0 && cursorRemoved === 0 && !codexRemoved && !skillRemoved) {
-    console.log("  No VoiceForge hooks or skill were found.");
+    console.log("  No Voxlert hooks or skill were found.");
   }
 
   if (existsSync(STATE_DIR)) {
@@ -581,7 +581,7 @@ async function runUninstall() {
     }
   }
 
-  console.log("\nUninstall complete. You can still run 'voiceforge' if installed via npm; run 'npm uninstall -g @settinghead/voiceforge' to remove the CLI.");
+  console.log("\nUninstall complete. You can still run 'voxlert' if installed via npm; run 'npm uninstall -g @settinghead/voxlert' to remove the CLI.");
 }
 
 // --- Main ---
@@ -598,10 +598,10 @@ async function runUninstall() {
     ? getUpgradeInfo(pkg.version, pkg.name)
     : null;
 
-  // First-run: auto-launch setup wizard if ~/.voiceforge/ doesn't exist
+  // First-run: auto-launch setup wizard if ~/.voxlert/ doesn't exist
   const skipWizardCmds = ["setup", "hook", "cursor-hook", "codex-notify", "config", "log", "notification", "uninstall", "help", "--help", "-h", "--version", "-v"];
   if (!skipWizardCmds.includes(cmd) && !existsSync(STATE_DIR)) {
-    console.log("Welcome to VoiceForge! Let's get you set up.\n");
+    console.log("Welcome to Voxlert! Let's get you set up.\n");
     const { runSetup } = await import("./setup.js");
     await runSetup();
     return;
@@ -619,13 +619,13 @@ async function runUninstall() {
       let input = "";
       for await (const chunk of process.stdin) { input += chunk; }
       try {
-        appendHookDebugLine(`voiceforge hook stdin received length=${input.length} raw=${stringifyForLog(input, 200)}`);
+        appendHookDebugLine(`voxlert hook stdin received length=${input.length} raw=${stringifyForLog(input, 200)}`);
         const eventData = JSON.parse(input);
         if (!eventData.source) eventData.source = "claude";
-        appendHookDebugLine(`voiceforge hook parsed eventData ${stringifyForLog(eventData)}`);
+        appendHookDebugLine(`voxlert hook parsed eventData ${stringifyForLog(eventData)}`);
         await processHookEvent(eventData);
       } catch (err) {
-        appendHookDebugLine(`voiceforge hook parse/process error ${err && err.message}`);
+        appendHookDebugLine(`voxlert hook parse/process error ${err && err.message}`);
         // invalid input — ignore silently
       }
       break;
@@ -667,11 +667,11 @@ async function runUninstall() {
       } else {
         console.log("Activity log: " + MAIN_LOG_FILE);
         console.log("Error log: " + LOG_FILE);
-        console.log("Use: voiceforge log          (stream activity log)");
-        console.log("      voiceforge log path    (activity log path)");
-        console.log("      voiceforge log error-path");
-        console.log("      voiceforge log on | off");
-        console.log("      voiceforge log error on | off");
+        console.log("Use: voxlert log          (stream activity log)");
+        console.log("      voxlert log path    (activity log path)");
+        console.log("      voxlert log error-path");
+        console.log("      voxlert log on | off");
+        console.log("      voxlert log error on | off");
       }
       break;
     }

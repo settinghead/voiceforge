@@ -1,6 +1,6 @@
 # Installing SoX (optional)
 
-SoX is used by VoiceForge for audio post-processing (echo, normalization). VoiceForge works without it, but with SoX you get richer character sound. Install the `sox` binary so it’s on your PATH.
+SoX is used by Voxlert for audio post-processing (echo, normalization). Voxlert works without it, but with SoX you get richer character sound. Install the `sox` binary so it’s on your PATH.
 
 ## macOS
 

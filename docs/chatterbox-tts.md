@@ -1,6 +1,6 @@
-# Chatterbox TTS (VoiceForge TTS backend)
+# Chatterbox TTS (Voxlert TTS backend)
 
-[Chatterbox TTS](https://github.com/resemble-ai/chatterbox) runs as a local API server for speech synthesis. VoiceForge sends phrases to it and plays the returned audio.
+[Chatterbox TTS](https://github.com/resemble-ai/chatterbox) runs as a local API server for speech synthesis. Voxlert sends phrases to it and plays the returned audio.
 
 ## Installation
 
@@ -44,16 +44,16 @@ venv\Scripts\activate
 python -m chatterbox.server --port 8004
 ```
 
-### 3. Point VoiceForge at it
+### 3. Point Voxlert at it
 
 ```bash
-voiceforge config set tts_backend chatterbox
+voxlert config set tts_backend chatterbox
 ```
 
-VoiceForge expects Chatterbox at `http://localhost:8004` by default. Change the URL with:
+Voxlert expects Chatterbox at `http://localhost:8004` by default. Change the URL with:
 
 ```bash
-voiceforge config set chatterbox_url http://localhost:8004
+voxlert config set chatterbox_url http://localhost:8004
 ```
 
 ## Auto-start (optional, macOS)

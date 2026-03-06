@@ -1,5 +1,5 @@
 /**
- * VoiceForge — On-screen notification wrapper.
+ * Voxlert — On-screen notification wrapper.
  *
  * - macOS: Custom Cocoa overlay via JXA (overlay.jxa) — gradient, icon, stacking.
  * - Windows/Linux: System notifications via node-notifier (native toasts / notify-send).
@@ -16,13 +16,13 @@ const require = createRequire(import.meta.url);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCRIPT_DIR = dirname(__dirname);
 const JXA_SCRIPT = join(__dirname, "overlay.jxa");
-const SLOT_DIR = "/tmp/voiceforge-popups";
+const SLOT_DIR = "/tmp/voxlert-popups";
 const MAX_SLOTS = 5;
 const STALE_MS = 60_000;
 
-const OVERLAY_DEBUG = process.env.VOICEFORGE_OVERLAY_DEBUG === "1" || process.env.VOICEFORGE_OVERLAY_DEBUG === "true";
+const OVERLAY_DEBUG = process.env.VOXLERT_OVERLAY_DEBUG === "1" || process.env.VOXLERT_OVERLAY_DEBUG === "true";
 function overlayDebug(msg, ...args) {
-  if (OVERLAY_DEBUG) console.error("[voiceforge overlay]", msg, ...args);
+  if (OVERLAY_DEBUG) console.error("[voxlert overlay]", msg, ...args);
 }
 
 // Default gradient (dark charcoal)
@@ -147,7 +147,7 @@ function runOverlay(phrase, { packName, packId, prefix, config, overlayColors } 
     try {
       const notifier = require("node-notifier");
       notifier.notify({
-        title: subtitle || "VoiceForge",
+        title: subtitle || "Voxlert",
         message: displayPhrase || phrase,
         icon: iconPath || undefined,
         sound: false,

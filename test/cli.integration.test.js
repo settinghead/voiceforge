@@ -10,13 +10,13 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_CLI_DIR = join(__dirname, "..");
 
 function createCliFixture() {
-  const root = mkdtempSync(join(tmpdir(), "voiceforge-cli-test-"));
+  const root = mkdtempSync(join(tmpdir(), "voxlert-cli-test-"));
   const cliDir = join(root, "cli");
   const homeDir = join(root, "home");
 
   mkdirSync(cliDir, { recursive: true });
   mkdirSync(homeDir, { recursive: true });
-  mkdirSync(join(homeDir, ".voiceforge"), { recursive: true });
+  mkdirSync(join(homeDir, ".voxlert"), { recursive: true });
 
   for (const entry of ["src", "packs", "package.json", "config.default.json"]) {
     cpSync(join(REPO_CLI_DIR, entry), join(cliDir, entry), { recursive: true });

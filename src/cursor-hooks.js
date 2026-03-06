@@ -18,9 +18,9 @@ const HOOK_ENTRY = (command) => ({
   timeout: 10,
 });
 
-function isVoiceForgeHook(entry) {
+function isVoxlertHook(entry) {
   const cmd = (entry && entry.command) || "";
-  return typeof cmd === "string" && (cmd.includes("voiceforge") || cmd.includes("cursor-hook"));
+  return typeof cmd === "string" && (cmd.includes("voxlert") || cmd.includes("cursor-hook"));
 }
 
 function loadHooks() {
@@ -35,14 +35,14 @@ export function hasCursorHooks() {
   const config = loadHooks();
   if (!config.hooks || typeof config.hooks !== "object") return false;
   return Object.values(config.hooks).some(
-    (entries) => Array.isArray(entries) && entries.some((entry) => isVoiceForgeHook(entry)),
+    (entries) => Array.isArray(entries) && entries.some((entry) => isVoxlertHook(entry)),
   );
 }
 
 /**
- * Register VoiceForge in ~/.cursor/hooks.json.
+ * Register Voxlert in ~/.cursor/hooks.json.
  * Merges with existing hooks; does not remove other hooks.
- * @param {string} command — e.g. "voiceforge cursor-hook"
+ * @param {string} command — e.g. "voxlert cursor-hook"
  * @returns {number} number of hook events registered
  */
 export function registerCursorHooks(command) {
@@ -55,7 +55,7 @@ export function registerCursorHooks(command) {
   for (const event of CURSOR_HOOK_EVENTS) {
     const existing = config.hooks[event];
     const arr = Array.isArray(existing) ? existing : [];
-    const withoutUs = arr.filter((entry) => !isVoiceForgeHook(entry));
+    const withoutUs = arr.filter((entry) => !isVoxlertHook(entry));
     const entry = HOOK_ENTRY(command);
     config.hooks[event] = [...withoutUs, entry];
     count++;
@@ -66,7 +66,7 @@ export function registerCursorHooks(command) {
 }
 
 /**
- * Remove VoiceForge hook entries from ~/.cursor/hooks.json.
+ * Remove Voxlert hook entries from ~/.cursor/hooks.json.
  * Leaves other hooks and the file intact.
  * @returns {number} number of hook entries removed
  */
@@ -80,7 +80,7 @@ export function unregisterCursorHooks() {
       const arr = config.hooks[event];
       if (!Array.isArray(arr)) continue;
       const before = arr.length;
-      config.hooks[event] = arr.filter((entry) => !isVoiceForgeHook(entry));
+      config.hooks[event] = arr.filter((entry) => !isVoxlertHook(entry));
       removed += before - config.hooks[event].length;
       if (config.hooks[event].length === 0) delete config.hooks[event];
     }

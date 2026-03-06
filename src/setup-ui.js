@@ -133,7 +133,7 @@ function renderLogoFrame(config, installedPlatforms, shimmerStep = -1) {
 export async function printSetupHeader(config, installedPlatforms) {
   if (!useFancyUi()) {
     console.log("");
-    console.log(color("=== VoiceForge Setup ===", ANSI.bold));
+    console.log(color("=== Voxlert Setup ===", ANSI.bold));
     console.log("");
     for (const line of formatCurrentConfig(config, installedPlatforms)) {
       console.log(`  ${line}`);

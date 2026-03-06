@@ -1,4 +1,4 @@
-"""Qwen3-TTS FastAPI server for VoiceForge — dual MLX / PyTorch backend."""
+"""Qwen3-TTS FastAPI server for Voxlert — dual MLX / PyTorch backend."""
 
 import os
 import gc

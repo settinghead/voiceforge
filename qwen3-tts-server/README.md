@@ -1,4 +1,4 @@
-# Qwen3-TTS (VoiceForge TTS backend)
+# Qwen3-TTS (Voxlert TTS backend)
 
 A FastAPI server that uses [Qwen3-TTS](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-Base) for voice-cloned text-to-speech. Give it a voice pack (a short WAV reference + transcript) and it generates speech in that voice.
 
@@ -28,11 +28,11 @@ A FastAPI server that uses [Qwen3-TTS](https://huggingface.co/Qwen/Qwen3-TTS-12H
 # Or run it from a uv-managed environment
 uv run ./run.sh
 
-# 3. Point VoiceForge at it
-voiceforge config set tts_backend qwen
+# 3. Point Voxlert at it
+voxlert config set tts_backend qwen
 ```
 
-**Windows:** The scripts above are bash (e.g. `setup.sh`, `run.sh`). Use **WSL** or **Git Bash** to run them, or do the steps manually: create a venv, `pip install -r requirements.txt`, download the PyTorch models (see Troubleshooting → "Model not found"), then run `python server.py` with `QWEN_TTS_RUNTIME=pytorch` and ensure the voiceforge `packs/` directory is available (e.g. clone the full voiceforge repo and run the server from `qwen3-tts-server`).
+**Windows:** The scripts above are bash (e.g. `setup.sh`, `run.sh`). Use **WSL** or **Git Bash** to run them, or do the steps manually: create a venv, `pip install -r requirements.txt`, download the PyTorch models (see Troubleshooting → "Model not found"), then run `python server.py` with `QWEN_TTS_RUNTIME=pytorch` and ensure the voxlert `packs/` directory is available (e.g. clone the full voxlert repo and run the server from `qwen3-tts-server`).
 
 Generate speech directly:
 

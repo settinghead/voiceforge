@@ -1,15 +1,15 @@
 {
-  "name": "@settinghead/voiceforge",
+  "name": "@settinghead/voxlert",
   "version": "0.3.4",
   "description": "LLM-generated voice notifications for Claude Code, Cursor, OpenAI Codex, and OpenClaw, spoken by game characters like the StarCraft Adjutant, Kerrigan, C&C EVA, SHODAN, and more.",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/settinghead/voiceforge.git"
+    "url": "git+https://github.com/settinghead/voxlert.git"
   },
-  "homepage": "https://github.com/settinghead/voiceforge",
+  "homepage": "https://github.com/settinghead/voxlert",
   "type": "module",
   "bin": {
-    "voiceforge": "src/cli.js"
+    "voxlert": "src/cli.js"
   },
   "files": [
     "src/",
@@ -20,12 +20,12 @@
     "assets/*.jpg",
     "assets/*.gif",
     "config.default.json",
-    "voiceforge.sh",
+    "voxlert.sh",
     "openclaw-plugin/",
     "LICENSE"
   ],
   "scripts": {
-    "start": "node src/voiceforge.js",
+    "start": "node src/voxlert.js",
     "postinstall": "node src/postinstall.js",
     "changeset": "changeset",
     "version": "changeset version",

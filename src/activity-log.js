@@ -1,5 +1,5 @@
 /**
- * Activity log: appends lines to ~/.voiceforge/voiceforge.log with retention.
+ * Activity log: appends lines to ~/.voxlert/voxlert.log with retention.
  * Keeps last 30 days and 5MB total (LRU: drop oldest when over limit).
  */
 

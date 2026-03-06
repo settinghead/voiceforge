@@ -1,16 +1,16 @@
 ---
-name: voiceforge-config
-description: View and edit VoiceForge configuration (voice notifications)
+name: voxlert-config
+description: View and edit Voxlert configuration (voice notifications)
 user_invocable: true
 ---
 
-# VoiceForge Configuration
+# Voxlert Configuration
 
-VoiceForge generates character voice notifications for Claude Code hook events.
+Voxlert generates character voice notifications for Claude Code hook events.
 
 ## Config File Location
 
-`voiceforge config path` — typically `~/.voiceforge/config.json` (npm global) or `<repo>/config.json` (run from clone).
+`voxlert config path` — typically `~/.voxlert/config.json` (npm global) or `<repo>/config.json` (run from clone).
 
 ## Configuration Fields
 
@@ -39,9 +39,9 @@ VoiceForge generates character voice notifications for Claude Code hook events.
 
 ## Instructions
 
-When the user asks to configure VoiceForge:
+When the user asks to configure Voxlert:
 
-1. **Read** the current config (path may vary; use `voiceforge config path` or try `~/.voiceforge/config.json`):
+1. **Read** the current config (path may vary; use `voxlert config path` or try `~/.voxlert/config.json`):
 
 2. **Edit** values using the Edit tool on that file.
 
@@ -51,8 +51,8 @@ When the user asks to configure VoiceForge:
 
 Switch voice packs using the CLI:
 ```bash
-voiceforge pack list              # List available packs
-voiceforge pack use <pack-id>     # Switch active pack
+voxlert pack list              # List available packs
+voxlert pack use <pack-id>     # Switch active pack
 ```
 
 Or edit `active_pack` in config.json directly. Available packs: `sc1-adjutant`, `sc2-adjutant`, `red-alert-eva`.
@@ -62,6 +62,6 @@ Or edit `active_pack` in config.json directly. Available packs: `sc1-adjutant`, 
 To clear the TTS audio cache (e.g., after changing voice):
 
 ```bash
-rm -f ~/.voiceforge/cache/*.wav
+rm -f ~/.voxlert/cache/*.wav
 ```
 (If config path is elsewhere, cache is in the same directory as config, under `cache/`.)

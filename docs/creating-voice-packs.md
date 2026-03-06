@@ -1,6 +1,6 @@
 # Creating Voice Packs
 
-A voice pack gives VoiceForge a character personality and voice. This guide covers how to create your own.
+A voice pack gives Voxlert a character personality and voice. This guide covers how to create your own.
 
 ## Directory Structure
 
@@ -63,7 +63,7 @@ The `<pack-id>` is a kebab-case identifier (e.g. `red-alert-eva`, `sc1-kerrigan`
 
 ## How Format vs Style Works
 
-VoiceForge separates **format** (structural rules) from **style** (character personality).
+Voxlert separates **format** (structural rules) from **style** (character personality).
 
 **Format** is defined in code (`src/formats.js`) and shared across all packs. It controls:
 - Word count (2-8 words)
@@ -76,7 +76,7 @@ VoiceForge separates **format** (structural rules) from **style** (character per
 - Vocabulary preferences ("prefer words like consumed, futile, terminated")
 - Character-specific examples that demonstrate the voice
 
-When generating a phrase, VoiceForge composes the final LLM system prompt as:
+When generating a phrase, Voxlert composes the final LLM system prompt as:
 
 ```
 [style] + [format rules]
@@ -116,7 +116,7 @@ The path forward illuminated
 
 ## Fallback Phrases
 
-When the LLM is unavailable (no API key, timeout, etc.), VoiceForge picks a random phrase from `fallback_phrases`. Categories (used by Claude Code, Cursor, and OpenClaw via plugin — see [OpenClaw integration](openclaw.md)):
+When the LLM is unavailable (no API key, timeout, etc.), Voxlert picks a random phrase from `fallback_phrases`. Categories (used by Claude Code, Cursor, and OpenClaw via plugin — see [OpenClaw integration](openclaw.md)):
 
 | Category | When |
 |----------|------|
@@ -143,13 +143,13 @@ Test your pack with the CLI:
 
 ```bash
 # Switch to your pack
-voiceforge pack use my-character
+voxlert pack use my-character
 
 # Test the full pipeline (LLM -> TTS -> audio)
-voiceforge test "Fixed a bug in the login form"
+voxlert test "Fixed a bug in the login form"
 
 # View pack details
-voiceforge pack show
+voxlert pack show
 ```
 
 ## Backward Compatibility

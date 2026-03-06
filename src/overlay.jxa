@@ -1,5 +1,5 @@
 /**
- * VoiceForge — Native macOS overlay notification.
+ * Voxlert — Native macOS overlay notification.
  *
  * Usage:
  *   osascript -l JavaScript overlay.jxa <message> <gradient_json> <icon_path> <slot> <dismiss_secs> [subtitle]

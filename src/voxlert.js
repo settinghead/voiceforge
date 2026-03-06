@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * VoiceForge - Game character voice notifications for Claude Code.
+ * Voxlert - Game character voice notifications for Claude Code.
  *
  * Generates contextual 2-8 word phrases via OpenRouter LLM,
  * speaks them through a local Chatterbox TTS server.
@@ -43,7 +43,7 @@ function logFallback(eventName, reason, detail) {
 
 /**
  * Process a hook event from parsed JSON input.
- * Exported so it can be called from the CLI `voiceforge hook` command.
+ * Exported so it can be called from the CLI `voxlert hook` command.
  */
 export async function processHookEvent(eventData) {
   const source = eventData.source || "claude";

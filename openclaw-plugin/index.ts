@@ -1,11 +1,11 @@
 /**
- * VoiceForge OpenClaw plugin.
+ * Voxlert OpenClaw plugin.
  *
- * Registers agent_end lifecycle hook and spawns `voiceforge hook` with
+ * Registers agent_end lifecycle hook and spawns `voxlert hook` with
  * Stop + source: "openclaw" when an agent run completes, so users get
  * voice notifications (especially for long-running tasks).
  *
- * Requires: VoiceForge installed and `voiceforge` on PATH when the gateway runs.
+ * Requires: Voxlert installed and `voxlert` on PATH when the gateway runs.
  */
 
 import { spawn } from "child_process";
@@ -13,15 +13,15 @@ import { appendFileSync, mkdirSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 
-const HOOK_DEBUG_LOG = join(homedir(), ".voiceforge", "hook-debug.log");
+const HOOK_DEBUG_LOG = join(homedir(), ".voxlert", "hook-debug.log");
 
 function debugLog(msg, data) {
   try {
-    mkdirSync(join(homedir(), ".voiceforge"), { recursive: true });
+    mkdirSync(join(homedir(), ".voxlert"), { recursive: true });
     const line =
       data !== undefined
-        ? `[${new Date().toISOString()}] [voiceforge-plugin] ${msg} ${JSON.stringify(data)}\n`
-        : `[${new Date().toISOString()}] [voiceforge-plugin] ${msg}\n`;
+        ? `[${new Date().toISOString()}] [voxlert-plugin] ${msg} ${JSON.stringify(data)}\n`
+        : `[${new Date().toISOString()}] [voxlert-plugin] ${msg}\n`;
     appendFileSync(HOOK_DEBUG_LOG, line);
   } catch {
     // best-effort
@@ -32,7 +32,7 @@ export default function register(api) {
   api.on(
     "agent_end",
     async (event, ctx) => {
-      const config = api.config?.plugins?.entries?.voiceforge?.config ?? {};
+      const config = api.config?.plugins?.entries?.voxlert?.config ?? {};
       if (config.enabled === false) return;
 
       const minDurationSeconds = Number(config.minDurationSeconds) || 0;
@@ -74,18 +74,18 @@ export default function register(api) {
       };
 
       try {
-        debugLog("agent_end: spawning voiceforge hook", payload);
+        debugLog("agent_end: spawning voxlert hook", payload);
       } catch {
         // ignore
       }
 
-      const child = spawn("voiceforge", ["hook"], {
+      const child = spawn("voxlert", ["hook"], {
         stdio: ["pipe", "ignore", "ignore"],
         detached: true,
       });
 
       child.on("error", (err) => {
-        debugLog("voiceforge spawn error", {
+        debugLog("voxlert spawn error", {
           message: err.message,
           code: err.code,
         });

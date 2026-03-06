@@ -28,7 +28,7 @@ function isNewer(latest, current) {
 
 /**
  * Fetch latest version from npm registry.
- * @param {string} packageName - e.g. "@settinghead/voiceforge"
+ * @param {string} packageName - e.g. "@settinghead/voxlert"
  * @returns {{ latest: string } | null}
  */
 async function fetchLatestVersion(packageName) {
@@ -47,7 +47,7 @@ async function fetchLatestVersion(packageName) {
 /**
  * Get upgrade info: use cache if fresh, else fetch from registry.
  * @param {string} currentVersion - e.g. "0.3.2"
- * @param {string} packageName - e.g. "@settinghead/voiceforge"
+ * @param {string} packageName - e.g. "@settinghead/voxlert"
  * @returns {Promise<{ current: string, latest: string } | null>} null if no upgrade or error
  */
 export async function getUpgradeInfo(currentVersion, packageName) {
@@ -101,14 +101,14 @@ function stripAnsi(str) {
  * Only uses colors when stdout is TTY.
  */
 export function printUpgradeNotification(info, options = {}) {
-  const { packageName = "@settinghead/voiceforge", releaseNotesUrl } = options;
+  const { packageName = "@settinghead/voxlert", releaseNotesUrl } = options;
   const useColor = process.stdout.isTTY;
   const c = useColor ? ansi : { reset: "", bold: "", dim: "", cyan: "", yellow: "", white: "", grey: "" };
 
   const installCmd = `npm install -g ${packageName}`;
   const url =
     releaseNotesUrl ||
-    `https://github.com/settinghead/voiceforge/releases/latest`;
+    `https://github.com/settinghead/voxlert/releases/latest`;
 
   const line1 = `${c.yellow}✨${c.reset} ${c.cyan}Update available!${c.reset} ${info.current} -> ${info.latest}`;
   const line2 = `Run ${installCmd} to update.`;

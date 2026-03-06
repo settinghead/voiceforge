@@ -97,7 +97,7 @@ const PROJECT_OVERRIDE_FIELDS = new Set([
 
 /**
  * Walk up from cwd toward home directory looking for project config.
- * Checks each directory for .voiceforge.json then .voiceforge/config.json.
+ * Checks each directory for .voxlert.json then .voxlert/config.json.
  * Returns the parsed config object from the nearest match, or null.
  */
 function findProjectConfig(cwd) {
@@ -110,8 +110,8 @@ function findProjectConfig(cwd) {
     // Don't check $HOME itself — that's the global user tier
     if (dir === home) break;
 
-    // Check .voiceforge.json first (wins over .voiceforge/config.json)
-    const dotFile = join(dir, ".voiceforge.json");
+    // Check .voxlert.json first (wins over .voxlert/config.json)
+    const dotFile = join(dir, ".voxlert.json");
     try {
       if (existsSync(dotFile)) {
         return JSON.parse(readFileSync(dotFile, "utf-8"));
@@ -120,8 +120,8 @@ function findProjectConfig(cwd) {
       // Malformed JSON — skip and keep walking
     }
 
-    // Check .voiceforge/config.json
-    const dirFile = join(dir, ".voiceforge", "config.json");
+    // Check .voxlert/config.json
+    const dirFile = join(dir, ".voxlert", "config.json");
     try {
       if (existsSync(dirFile)) {
         return JSON.parse(readFileSync(dirFile, "utf-8"));
@@ -139,7 +139,7 @@ function findProjectConfig(cwd) {
 }
 
 /**
- * Load the global user config from ~/.voiceforge/config.json.
+ * Load the global user config from ~/.voxlert/config.json.
  * Returns empty object if missing or malformed.
  */
 function loadGlobalUserConfig() {
@@ -184,8 +184,8 @@ function mergeConfigs(base, ...overrides) {
 /**
  * Load config with 3-tier resolution:
  *   1. Install-dir config.json (base)
- *   2. ~/.voiceforge/config.json (global user prefs, whitelist-filtered)
- *   3. Nearest .voiceforge.json / .voiceforge/config.json (project override, whitelist-filtered)
+ *   2. ~/.voxlert/config.json (global user prefs, whitelist-filtered)
+ *   3. Nearest .voxlert.json / .voxlert/config.json (project override, whitelist-filtered)
  *
  * When called without cwd, behaves like the original (install config + global user only).
  */

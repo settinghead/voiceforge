@@ -27,7 +27,7 @@ function analyzeVolume(wavPath) {
 
 /**
  * Get volume offset in dB for a pack's voice file.
- * Caches result in ~/.voiceforge/pack-volume/<pack-id>.json.
+ * Caches result in ~/.voxlert/pack-volume/<pack-id>.json.
  */
 function getVolumeOffsetDb(voicePath, packId) {
   if (!voicePath || !existsSync(voicePath)) return 0;

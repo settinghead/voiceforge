@@ -6,7 +6,7 @@
  * baseUrl should point at raw GitHub content (branch or tag).
  */
 
-const GITHUB_RAW_BASE = "https://raw.githubusercontent.com/settinghead/voiceforge/main/packs";
+const GITHUB_RAW_BASE = "https://raw.githubusercontent.com/settinghead/voxlert/main/packs";
 
 export const PACK_REGISTRY = [
   { id: "sc2-adjutant", name: "StarCraft 2 Adjutant" },
@@ -24,5 +24,5 @@ export const PACK_REGISTRY = [
 export const DEFAULT_DOWNLOAD_PACK_IDS = ["sc2-adjutant", "sc1-adjutant", "red-alert-eva"];
 
 export function getPackRegistryBaseUrl() {
-  return process.env.VOICEFORGE_PACKS_BASE_URL || GITHUB_RAW_BASE;
+  return process.env.VOXLERT_PACKS_BASE_URL || GITHUB_RAW_BASE;
 }

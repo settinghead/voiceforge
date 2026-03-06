@@ -1,7 +1,7 @@
 {
-  "id": "voiceforge",
-  "name": "VoiceForge Notify",
-  "description": "Speak when OpenClaw agent runs complete (e.g. long-running tasks) using VoiceForge character voices.",
+  "id": "voxlert",
+  "name": "Voxlert Notify",
+  "description": "Speak when OpenClaw agent runs complete (e.g. long-running tasks) using Voxlert character voices.",
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
@@ -14,7 +14,7 @@
       "enabled": {
         "type": "boolean",
         "default": true,
-        "description": "Master switch for VoiceForge notifications"
+        "description": "Master switch for Voxlert notifications"
       }
     }
   }

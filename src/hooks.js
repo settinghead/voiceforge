@@ -3,8 +3,8 @@ import { join } from "path";
 import { homedir } from "os";
 
 const SETTINGS_FILE = join(homedir(), ".claude", "settings.json");
-const SKILL_SRC = join(import.meta.dirname, "..", "skills", "voiceforge-config", "SKILL.md");
-const SKILL_DEST_DIR = join(homedir(), ".claude", "skills", "voiceforge-config");
+const SKILL_SRC = join(import.meta.dirname, "..", "skills", "voxlert-config", "SKILL.md");
+const SKILL_DEST_DIR = join(homedir(), ".claude", "skills", "voxlert-config");
 
 const HOOK_EVENTS = {
   Stop: { matcher: "", timeout: 10, async: true },
@@ -28,7 +28,7 @@ function saveSettings(settings) {
   writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2) + "\n");
 }
 
-export function hasVoiceForgeHooks() {
+export function hasVoxlertHooks() {
   const settings = loadSettings();
   if (!settings.hooks || typeof settings.hooks !== "object") return false;
   return Object.values(settings.hooks).some(
@@ -37,15 +37,15 @@ export function hasVoiceForgeHooks() {
       blocks.some(
         (block) =>
           block.hooks &&
-          block.hooks.some((hook) => (hook.command || "").includes("voiceforge")),
+          block.hooks.some((hook) => (hook.command || "").includes("voxlert")),
       ),
   );
 }
 
 /**
- * Register VoiceForge hooks in ~/.claude/settings.json.
- * Idempotent — removes any existing voiceforge hooks first, then adds fresh ones.
- * @param {string} command — the hook command to execute (e.g. path to voiceforge.sh or "voiceforge hook")
+ * Register Voxlert hooks in ~/.claude/settings.json.
+ * Idempotent — removes any existing voxlert hooks first, then adds fresh ones.
+ * @param {string} command — the hook command to execute (e.g. path to voxlert.sh or "voxlert hook")
  */
 export function registerHooks(command) {
   const settings = loadSettings();
@@ -66,11 +66,11 @@ export function registerHooks(command) {
 
     if (!settings.hooks[event]) settings.hooks[event] = [];
 
-    // Remove any existing voiceforge hooks for this event
+    // Remove any existing voxlert hooks for this event
     settings.hooks[event] = settings.hooks[event].filter(
       (block) =>
         !block.hooks ||
-        !block.hooks.some((h) => (h.command || "").includes("voiceforge")),
+        !block.hooks.some((h) => (h.command || "").includes("voxlert")),
     );
 
     settings.hooks[event].push(matcherBlock);
@@ -81,7 +81,7 @@ export function registerHooks(command) {
 }
 
 /**
- * Remove all VoiceForge hooks from ~/.claude/settings.json.
+ * Remove all Voxlert hooks from ~/.claude/settings.json.
  */
 export function unregisterHooks() {
   const settings = loadSettings();
@@ -93,7 +93,7 @@ export function unregisterHooks() {
     settings.hooks[event] = settings.hooks[event].filter(
       (block) =>
         !block.hooks ||
-        !block.hooks.some((h) => (h.command || "").includes("voiceforge")),
+        !block.hooks.some((h) => (h.command || "").includes("voxlert")),
     );
     removed += before - settings.hooks[event].length;
     if (settings.hooks[event].length === 0) delete settings.hooks[event];
@@ -105,7 +105,7 @@ export function unregisterHooks() {
 }
 
 /**
- * Install the voiceforge-config skill to ~/.claude/skills/.
+ * Install the voxlert-config skill to ~/.claude/skills/.
  */
 export function installSkill() {
   if (!existsSync(SKILL_SRC)) return false;
@@ -120,7 +120,7 @@ export function hasInstalledSkill() {
 }
 
 /**
- * Remove the voiceforge-config skill from ~/.claude/skills/.
+ * Remove the voxlert-config skill from ~/.claude/skills/.
  */
 export function removeSkill() {
   if (!existsSync(SKILL_DEST_DIR)) return false;
