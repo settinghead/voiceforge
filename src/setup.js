@@ -7,8 +7,8 @@
 import { existsSync, mkdirSync, readdirSync, copyFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
-import { request as httpsRequest } from "https";
-import { request as httpRequest } from "http";
+import * as http from "http";
+import * as https from "https";
 import select from "@inquirer/select";
 import checkbox from "@inquirer/checkbox";
 import input from "@inquirer/input";
@@ -22,28 +22,13 @@ import { registerHooks, installSkill, unregisterHooks, hasVoxlertHooks, hasInsta
 import { registerCursorHooks, unregisterCursorHooks, hasCursorHooks } from "./cursor-hooks.js";
 import { registerCodexNotify, getCodexConfigPath, unregisterCodexNotify, hasCodexNotify } from "./codex-config.js";
 import { printSetupHeader, printStep, printStatus, printSuccess, printWarning, highlight } from "./setup-ui.js";
-
-/**
- * Probe a URL with a GET request. Resolves true if any response comes back.
- */
-function probeUrl(url, timeoutMs = 2000) {
-  return new Promise((resolve) => {
-    let urlObj;
-    try {
-      urlObj = new URL(url);
-    } catch {
-      return resolve(false);
-    }
-    const reqFn = urlObj.protocol === "https:" ? httpsRequest : httpRequest;
-    const req = reqFn(urlObj, { method: "GET", timeout: timeoutMs }, (res) => {
-      res.resume();
-      resolve(true);
-    });
-    req.on("error", () => resolve(false));
-    req.on("timeout", () => { req.destroy(); resolve(false); });
-    req.end();
-  });
-}
+import {
+  QWEN_DOCS_URL,
+  CHATTERBOX_DOCS_URL,
+  probeTtsBackend,
+  chooseTtsBackend,
+  verifyTtsSetup,
+} from "./tts-test.js";
 
 /**
  * Validate an API key by making a lightweight request to the provider.
@@ -76,7 +61,7 @@ function validateApiKey(providerId, apiKey) {
         },
         timeout: 8000,
       };
-      const req = httpsRequest(url, options, (res) => {
+      const req = https.request(url, options, (res) => {
         let data = "";
         res.on("data", (chunk) => (data += chunk));
         res.on("end", () => {
@@ -98,7 +83,7 @@ function validateApiKey(providerId, apiKey) {
         headers: { ...authHeaders },
         timeout: 8000,
       };
-      const reqFn = url.protocol === "https:" ? httpsRequest : httpRequest;
+      const reqFn = url.protocol === "https:" ? https.request : http.request;
       const req = reqFn(url, options, (res) => {
         let data = "";
         res.on("data", (chunk) => (data += chunk));
@@ -127,7 +112,7 @@ function fetchUrl(url, timeoutMs = 15000) {
     } catch (e) {
       return reject(e);
     }
-    const reqFn = urlObj.protocol === "https:" ? httpsRequest : httpRequest;
+    const reqFn = urlObj.protocol === "https:" ? https.request : http.request;
     const req = reqFn(urlObj, { method: "GET", timeout: timeoutMs }, (res) => {
       if (res.statusCode < 200 || res.statusCode >= 300) {
         reject(new Error(`HTTP ${res.statusCode}`));
@@ -391,46 +376,22 @@ export async function runSetup() {
   console.log("");
   printStep(5, "TTS Server");
 
-  const chatterboxUrl = config.chatterbox_url || "http://localhost:8004";
-  const qwenUrl = config.qwen_tts_url || "http://localhost:8100";
+  printStatus("Recommended", "Qwen TTS for a more natural voice");
+  printStatus("Voice test", `Uses the voice you picked in Step 4 (${config.active_pack || "default"})`);
+  printStatus("Qwen TTS setup docs", QWEN_DOCS_URL);
+  printStatus("Chatterbox setup docs", CHATTERBOX_DOCS_URL);
+  console.log("");
 
   process.stdout.write("  Checking Chatterbox (port 8004)... ");
-  const chatterboxUp = await probeUrl(`${chatterboxUrl}/health`);
+  const chatterboxUp = await probeTtsBackend(config, "chatterbox");
   console.log(chatterboxUp ? "detected!" : "not running");
 
   process.stdout.write("  Checking Qwen TTS (port 8100)...   ");
-  const qwenUp = await probeUrl(`${qwenUrl}/health`);
+  const qwenUp = await probeTtsBackend(config, "qwen");
   console.log(qwenUp ? "detected!" : "not running");
 
-  if (chatterboxUp && qwenUp) {
-    const ttsChoice = await select({
-      message: "Both TTS servers detected. Which one to use?",
-      choices: [
-        {
-          name: config.tts_backend === "chatterbox" ? "Chatterbox (current, port 8004)" : "Chatterbox (port 8004)",
-          value: "chatterbox",
-        },
-        {
-          name: config.tts_backend === "qwen" ? "Qwen TTS (current, port 8100)" : "Qwen TTS (port 8100)",
-          value: "qwen",
-        },
-      ],
-      default: config.tts_backend || "chatterbox",
-    });
-    config.tts_backend = ttsChoice;
-  } else if (qwenUp && !chatterboxUp) {
-    config.tts_backend = "qwen";
-    printSuccess("Using Qwen TTS.");
-  } else if (chatterboxUp) {
-    config.tts_backend = "chatterbox";
-    printSuccess("Using Chatterbox.");
-  } else {
-    console.log("");
-    printWarning("No TTS server detected. Voxlert will still work with fallback phrases.");
-    printStatus("Chatterbox", "https://github.com/resemble-ai/chatterbox");
-    printStatus("Qwen TTS", "qwen3-tts-server/ directory");
-    console.log("");
-  }
+  config.tts_backend = await chooseTtsBackend(config, { qwenUp, chatterboxUp });
+  await verifyTtsSetup(config, config.tts_backend);
 
   // --- Step 6: Hooks (platforms) ---
   console.log("");

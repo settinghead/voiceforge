@@ -148,7 +148,7 @@ function getPlaybackCommand(platform, volume, cachePath) {
   return null;
 }
 
-function playFile(cachePath, volume) {
+export function playFile(cachePath, volume) {
   return new Promise((resolve) => {
     if (!existsSync(cachePath)) return resolve();
     const platform = process.platform;
