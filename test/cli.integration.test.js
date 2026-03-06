@@ -2,10 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, cpSync, symlinkSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
-const REPO_CLI_DIR = process.cwd();
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const REPO_CLI_DIR = join(__dirname, "..");
 
 function createCliFixture() {
   const root = mkdtempSync(join(tmpdir(), "voiceforge-cli-test-"));
