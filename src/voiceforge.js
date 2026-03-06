@@ -50,6 +50,18 @@ export async function processHookEvent(eventData) {
   debugLog("processHookEvent entered", { source, hook_event_name: eventData.hook_event_name, cwd: eventData.cwd });
   const cwd = eventData.cwd || "";
   const config = loadConfig(cwd || undefined);
+  debugLog("processHookEvent config loaded", {
+    source,
+    cwd,
+    enabled: config.enabled !== false,
+    active_pack: config.active_pack || "",
+    llm_backend: config.llm_backend || "",
+    tts_backend: config.tts_backend || "",
+    overlay: config.overlay === true,
+    prefix: config.prefix !== undefined ? config.prefix : "${dirname}",
+    task_complete_enabled: config.categories?.["task.complete"] !== false,
+    task_error_enabled: config.categories?.["task.error"] !== false,
+  });
   if (config.enabled === false) {
     debugLog("processHookEvent skip: config.enabled === false", { source });
     return;
@@ -80,11 +92,31 @@ export async function processHookEvent(eventData) {
   let fallbackDetail = null;
   if (CONTEXTUAL_EVENTS.has(eventName)) {
     const context = extractContext(eventData);
+    debugLog("processHookEvent context extracted", {
+      source,
+      eventName,
+      hasContext: Boolean(context),
+      contextPreview: context ? context.replace(/\s+/g, " ").slice(0, 160) : "",
+    });
     if (context) {
       const result = await generatePhrase(context, config, pack.style, pack.llm_temperature, pack.examples);
       phrase = result.phrase;
       fallbackReason = result.fallbackReason;
       fallbackDetail = result.detail || null;
+      if (phrase) {
+        debugLog("processHookEvent generated phrase", {
+          source,
+          eventName,
+          phrase: phrase.replace(/\s+/g, " ").slice(0, 160),
+        });
+      } else {
+        debugLog("processHookEvent generation fell back", {
+          source,
+          eventName,
+          fallbackReason,
+          fallbackDetail,
+        });
+      }
     } else {
       fallbackReason = "no_context";
     }
@@ -92,6 +124,12 @@ export async function processHookEvent(eventData) {
 
   // Fall back to predefined phrases (pack overrides defaults)
   if (!phrase) {
+    debugLog("processHookEvent using fallback phrase", {
+      source,
+      eventName,
+      fallbackReason,
+      fallbackDetail,
+    });
     if (fallbackReason && config.error_log === true) {
       logFallback(eventName, fallbackReason, fallbackDetail);
     }
