@@ -57,6 +57,17 @@ test("prints version", () => {
   assert.equal(result.stderr, "");
 });
 
+test("help is composed from command sections", () => {
+  const fixture = createCliFixture();
+  const result = runCli(fixture, ["help"]);
+
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /voxlert setup\s+Interactive setup wizard/);
+  assert.match(result.stdout, /voxlert config set <k> <v>\s+Set a global config value/);
+  assert.match(result.stdout, /voxlert pack use <pack-id>\s+Switch active voice pack/);
+  assert.match(result.stdout, /voxlert --version\s+Show version/);
+});
+
 test("config set persists values in the CLI config file", () => {
   const fixture = createCliFixture();
 
