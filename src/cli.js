@@ -242,7 +242,8 @@ function configSet(key, value) {
 
   // Auto-coerce booleans and numbers
   let coerced = value;
-  if (value === "true") coerced = true;
+  if (value === "null") coerced = null;
+  else if (value === "true") coerced = true;
   else if (value === "false") coerced = false;
   else if (value !== "" && !isNaN(Number(value))) coerced = Number(value);
 
@@ -535,7 +536,7 @@ async function runUninstall() {
     : null;
 
   // First-run: auto-launch setup wizard if ~/.voiceforge/ doesn't exist
-  const skipWizardCmds = ["setup", "hook", "cursor-hook", "codex-notify", "log", "notification", "uninstall", "help", "--help", "-h", "--version", "-v"];
+  const skipWizardCmds = ["setup", "hook", "cursor-hook", "codex-notify", "config", "log", "notification", "uninstall", "help", "--help", "-h", "--version", "-v"];
   if (!skipWizardCmds.includes(cmd) && !existsSync(STATE_DIR)) {
     console.log("Welcome to VoiceForge! Let's get you set up.\n");
     const { runSetup } = await import("./setup.js");

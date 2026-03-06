@@ -211,10 +211,10 @@ Run `voiceforge config path` to find `config.json`. You can edit it directly or 
 |---|---|---|---|
 | `enabled` | boolean | `true` | Master on/off switch |
 | `llm_backend` | string | `"openrouter"` | LLM provider: `openrouter`, `openai`, `gemini`, `anthropic`, or `local` |
-| `llm_api_key` | string | `""` | API key for the chosen LLM provider |
-| `llm_model` | string | `""` | Model ID (empty = provider default) |
-| `openrouter_api_key` | string | `""` | Legacy alias used when `llm_backend` is `openrouter` and `llm_api_key` is empty |
-| `openrouter_model` | string | `""` | Legacy alias used when `llm_model` is empty and backend is `openrouter` |
+| `llm_api_key` | string \| null | `null` | API key for the chosen LLM provider |
+| `llm_model` | string \| null | `null` | Model ID (`null` = provider default) |
+| `openrouter_api_key` | string \| null | `null` | Legacy alias used when `llm_backend` is `openrouter` and `llm_api_key` is empty |
+| `openrouter_model` | string \| null | `null` | Legacy alias used when `llm_model` is empty and backend is `openrouter` |
 | `chatterbox_url` | string | `"http://localhost:8004"` | Chatterbox TTS server URL |
 | `tts_backend` | string | `"chatterbox"` | TTS backend: `chatterbox` or `qwen` |
 | `active_pack` | string | `"sc2-adjutant"` | Active voice pack ID |

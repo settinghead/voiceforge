@@ -31,6 +31,14 @@ function loadHooks() {
   }
 }
 
+export function hasCursorHooks() {
+  const config = loadHooks();
+  if (!config.hooks || typeof config.hooks !== "object") return false;
+  return Object.values(config.hooks).some(
+    (entries) => Array.isArray(entries) && entries.some((entry) => isVoiceForgeHook(entry)),
+  );
+}
+
 /**
  * Register VoiceForge in ~/.cursor/hooks.json.
  * Merges with existing hooks; does not remove other hooks.

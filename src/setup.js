@@ -18,9 +18,9 @@ import { listPacks } from "./packs.js";
 import { CONFIG_PATH, PACKS_DIR, CACHE_DIR, IS_NPM_GLOBAL, BUNDLED_PACKS_DIR, SCRIPT_DIR } from "./paths.js";
 import { PACK_REGISTRY, DEFAULT_DOWNLOAD_PACK_IDS, getPackRegistryBaseUrl } from "./pack-registry.js";
 import { LLM_PROVIDERS, getProvider } from "./providers.js";
-import { registerHooks, installSkill } from "./hooks.js";
-import { registerCursorHooks } from "./cursor-hooks.js";
-import { registerCodexNotify, getCodexConfigPath } from "./codex-config.js";
+import { registerHooks, installSkill, unregisterHooks, hasVoiceForgeHooks, hasInstalledSkill, removeSkill } from "./hooks.js";
+import { registerCursorHooks, unregisterCursorHooks, hasCursorHooks } from "./cursor-hooks.js";
+import { registerCodexNotify, getCodexConfigPath, unregisterCodexNotify, hasCodexNotify } from "./codex-config.js";
 
 /**
  * Probe a URL with a GET request. Resolves true if any response comes back.
@@ -219,7 +219,7 @@ export async function runSetup() {
     default: currentBackend !== "local" ? currentBackend : "openrouter",
   });
 
-  let apiKey = "";
+  let apiKey = null;
 
   if (chosenProvider !== "skip") {
     config.llm_backend = chosenProvider;
@@ -229,7 +229,7 @@ export async function runSetup() {
     console.log(`\nStep 2/6: API Key\n`);
     console.log(`  Get a key at: ${provider.signupUrl}\n`);
 
-    const existingKey = config.llm_api_key || config.openrouter_api_key || "";
+    const existingKey = config.llm_api_key ?? config.openrouter_api_key ?? "";
     const maskedExisting = existingKey
       ? `${existingKey.slice(0, 4)}…${existingKey.slice(-4)}`
       : "";
@@ -257,7 +257,7 @@ export async function runSetup() {
           default: true,
         });
         if (!proceed) {
-          apiKey = "";
+          apiKey = null;
           console.log("  Skipped — you can set it later with: voiceforge config set llm_api_key <key>\n");
         } else {
           console.log("");
@@ -270,7 +270,13 @@ export async function runSetup() {
         if (chosenProvider === "openrouter") {
           config.openrouter_api_key = apiKey;
         }
+      } else {
+        config.llm_api_key = null;
+        config.openrouter_api_key = null;
       }
+    } else {
+      config.llm_api_key = null;
+      config.openrouter_api_key = null;
     }
 
     // Set default model for chosen provider
@@ -278,6 +284,8 @@ export async function runSetup() {
       config.llm_model = provider.defaultModel;
     }
   } else {
+    config.llm_api_key = null;
+    config.openrouter_api_key = null;
     console.log("\n  Skipped — VoiceForge will use fallback phrases from the voice pack.\n");
   }
 
@@ -392,9 +400,24 @@ export async function runSetup() {
   console.log("\nStep 6/6: Hooks — which platforms?\n");
 
   const platformChoices = [
-    { name: "Claude Code", value: "claude", description: "Register in ~/.claude/settings.json + install skill" },
-    { name: "Cursor", value: "cursor", description: "Register in ~/.cursor/hooks.json (Agent / Cmd+K)" },
-    { name: "Codex", value: "codex", description: "Install/update notify in ~/.codex/config.toml" },
+    {
+      name: "Claude Code",
+      value: "claude",
+      description: "Register in ~/.claude/settings.json + install skill",
+      checked: hasVoiceForgeHooks() || hasInstalledSkill(),
+    },
+    {
+      name: "Cursor",
+      value: "cursor",
+      description: "Register in ~/.cursor/hooks.json (Agent / Cmd+K)",
+      checked: hasCursorHooks(),
+    },
+    {
+      name: "Codex",
+      value: "codex",
+      description: "Install/update notify in ~/.codex/config.toml",
+      checked: hasCodexNotify(),
+    },
   ];
 
   const selectedPlatforms = await checkbox({
@@ -415,17 +438,36 @@ export async function runSetup() {
     if (installSkill()) {
       console.log("  Installed voiceforge-config skill");
     }
+  } else {
+    const removed = unregisterHooks();
+    const skillRemoved = removeSkill();
+    if (removed > 0) {
+      console.log(`  Removed ${removed} hook(s) from ~/.claude/settings.json`);
+    }
+    if (skillRemoved) {
+      console.log("  Removed voiceforge-config skill");
+    }
   }
 
   if (selectedPlatforms.includes("cursor")) {
     const cursorCount = registerCursorHooks("voiceforge cursor-hook");
     console.log(`  Registered ${cursorCount} hook events in ~/.cursor/hooks.json`);
     console.log("  Restart Cursor for hooks to take effect.");
+  } else {
+    const cursorRemoved = unregisterCursorHooks();
+    if (cursorRemoved > 0) {
+      console.log(`  Removed ${cursorRemoved} hook(s) from ~/.cursor/hooks.json`);
+    }
   }
 
   if (selectedPlatforms.includes("codex")) {
     registerCodexNotify(codexNotifyCommand);
     console.log(`  Installed Codex notify command in ${getCodexConfigPath()}`);
+  } else {
+    const codexRemoved = unregisterCodexNotify();
+    if (codexRemoved) {
+      console.log(`  Removed Codex notify from ${getCodexConfigPath()}`);
+    }
   }
 
   if (selectedPlatforms.length === 0) {

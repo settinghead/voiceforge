@@ -28,6 +28,20 @@ function saveSettings(settings) {
   writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2) + "\n");
 }
 
+export function hasVoiceForgeHooks() {
+  const settings = loadSettings();
+  if (!settings.hooks || typeof settings.hooks !== "object") return false;
+  return Object.values(settings.hooks).some(
+    (blocks) =>
+      Array.isArray(blocks) &&
+      blocks.some(
+        (block) =>
+          block.hooks &&
+          block.hooks.some((hook) => (hook.command || "").includes("voiceforge")),
+      ),
+  );
+}
+
 /**
  * Register VoiceForge hooks in ~/.claude/settings.json.
  * Idempotent — removes any existing voiceforge hooks first, then adds fresh ones.
@@ -99,6 +113,10 @@ export function installSkill() {
   const content = readFileSync(SKILL_SRC, "utf-8");
   writeFileSync(join(SKILL_DEST_DIR, "SKILL.md"), content);
   return true;
+}
+
+export function hasInstalledSkill() {
+  return existsSync(join(SKILL_DEST_DIR, "SKILL.md"));
 }
 
 /**

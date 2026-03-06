@@ -126,6 +126,12 @@ export function getCodexConfigPath() {
   return CODEX_CONFIG_FILE;
 }
 
+export function hasCodexNotify() {
+  if (!existsSync(CODEX_CONFIG_FILE)) return false;
+  const current = loadCodexConfig();
+  return /^\s*notify\s*=/m.test(splitTopLevelPrefix(current).prefixLines.join("\n"));
+}
+
 export function registerCodexNotify(commandArgs) {
   const current = loadCodexConfig();
   const next = replaceTopLevelArrayAssignment(current, "notify", renderTomlStringArray(commandArgs));
