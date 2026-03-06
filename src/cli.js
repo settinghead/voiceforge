@@ -17,6 +17,7 @@ import { CONFIG_PATH, STATE_DIR, LOG_FILE, MAIN_LOG_FILE, HOOK_DEBUG_LOG } from 
 import { processHookEvent } from "./voiceforge.js";
 import { unregisterHooks, removeSkill } from "./hooks.js";
 import { unregisterCursorHooks } from "./cursor-hooks.js";
+import { getUpgradeInfo, printUpgradeNotification } from "./upgrade-check.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf-8"));
@@ -473,6 +474,14 @@ async function runUninstall() {
   const cmd = args[0] || "help";
   const sub = args[1] || "";
 
+  // Start upgrade check in background when interactive (don't block command)
+  const interactiveUpgrade =
+    process.stdout.isTTY &&
+    !["hook", "cursor-hook"].includes(cmd);
+  const upgradePromise = interactiveUpgrade
+    ? getUpgradeInfo(pkg.version, pkg.name)
+    : null;
+
   // First-run: auto-launch setup wizard if ~/.voiceforge/ doesn't exist
   const skipWizardCmds = ["setup", "hook", "cursor-hook", "log", "notification", "uninstall", "help", "--help", "-h", "--version", "-v"];
   if (!skipWizardCmds.includes(cmd) && !existsSync(STATE_DIR)) {
@@ -608,5 +617,25 @@ async function runUninstall() {
       console.error(`Unknown command: ${cmd}\n`);
       console.log(HELP);
       process.exit(1);
+  }
+
+  // Show upgrade notification if a newer version is available
+  if (upgradePromise) {
+    try {
+      const info = await upgradePromise;
+      if (info) {
+        const releaseNotesUrl =
+          pkg.repository?.url &&
+          String(pkg.repository.url).replace(/\.git$/i, "").replace(/^git\+https:/, "https:");
+        printUpgradeNotification(info, {
+          packageName: pkg.name,
+          releaseNotesUrl: releaseNotesUrl
+            ? `${releaseNotesUrl}/releases/latest`
+            : undefined,
+        });
+      }
+    } catch {
+      // non-fatal: ignore
+    }
   }
 })();
