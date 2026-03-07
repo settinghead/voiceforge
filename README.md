@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://youtu.be/-aiSZnGNyE4">
+  <a href="https://youtu.be/O_20sAwwB-Q">
     <img src="https://raw.githubusercontent.com/settinghead/voxlert/main/assets/demo-thumbnail.png" alt="Voxlert Demo" width="100%" />
   </a>
 </p>
