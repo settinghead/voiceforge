@@ -18,6 +18,94 @@ import { CACHE_DIR, QUEUE_DIR, LOCK_FILE } from "./paths.js";
 
 const DEFAULT_MAX_CACHE = 150;
 
+// voice_id cache: voicePath -> voice_id (avoids re-uploading every call)
+const _voiceIdCache = new Map();
+
+function _buildMultipart(fields, files) {
+  const boundary = `----VoxlertBoundary${Date.now()}${Math.random().toString(36).slice(2)}`;
+  const parts = [];
+  for (const [name, value] of Object.entries(fields)) {
+    parts.push(Buffer.from(
+      `--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`,
+    ));
+  }
+  for (const { name, filename, contentType, data } of files) {
+    parts.push(Buffer.from(
+      `--${boundary}\r\nContent-Disposition: form-data; name="${name}"; filename="${filename}"\r\n` +
+      `Content-Type: ${contentType}\r\n\r\n`,
+    ));
+    parts.push(data);
+    parts.push(Buffer.from("\r\n"));
+  }
+  parts.push(Buffer.from(`--${boundary}--\r\n`));
+  return { boundary, body: Buffer.concat(parts) };
+}
+
+function registerVoiceWithQwen(config, voicePath, refText) {
+  if (_voiceIdCache.has(voicePath)) {
+    return Promise.resolve(_voiceIdCache.get(voicePath));
+  }
+  if (!voicePath || !existsSync(voicePath) || !refText) {
+    return Promise.resolve(null);
+  }
+  return new Promise((resolve) => {
+    const qwenUrl = config.qwen_tts_url || "http://localhost:8100";
+    const endpoint = `${qwenUrl}/voices`;
+
+    let audioData;
+    try {
+      audioData = readFileSync(voicePath);
+    } catch {
+      return resolve(null);
+    }
+
+    const { boundary, body } = _buildMultipart(
+      { ref_text: refText },
+      [{ name: "audio", filename: "voice.wav", contentType: "audio/wav", data: audioData }],
+    );
+
+    const url = new URL(endpoint);
+    const requestFn = url.protocol === "https:" ? httpsRequest : httpRequest;
+
+    const req = requestFn(
+      endpoint,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": `multipart/form-data; boundary=${boundary}`,
+          "Content-Length": body.length,
+        },
+        timeout: 15000,
+      },
+      (res) => {
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          res.resume();
+          return resolve(null);
+        }
+        const chunks = [];
+        res.on("data", (chunk) => chunks.push(chunk));
+        res.on("end", () => {
+          try {
+            const result = JSON.parse(Buffer.concat(chunks).toString());
+            if (result.voice_id) {
+              _voiceIdCache.set(voicePath, result.voice_id);
+            }
+            resolve(result.voice_id || null);
+          } catch {
+            resolve(null);
+          }
+        });
+        res.on("error", () => resolve(null));
+      },
+    );
+
+    req.on("error", () => resolve(null));
+    req.on("timeout", () => { req.destroy(); resolve(null); });
+    req.write(body);
+    req.end();
+  });
+}
+
 function evictCache(cacheDir, maxEntries) {
   let files;
   try {
@@ -250,12 +338,14 @@ function downloadChatterbox(phrase, cachePath, config, voicePath, ttsParams) {
   });
 }
 
-function downloadQwen(phrase, cachePath, config, packId) {
+function downloadQwen(phrase, cachePath, config, voiceId) {
   return new Promise((resolve) => {
     const qwenUrl = config.qwen_tts_url || "http://localhost:8100";
     const endpoint = `${qwenUrl}/tts`;
 
-    const payload = JSON.stringify({ text: phrase, pack_id: packId });
+    const body = { text: phrase };
+    if (voiceId) body.voice_id = voiceId;
+    const payload = JSON.stringify(body);
 
     const url = new URL(endpoint);
     const requestFn = url.protocol === "https:" ? httpsRequest : httpRequest;
@@ -299,9 +389,10 @@ function downloadQwen(phrase, cachePath, config, packId) {
   });
 }
 
-function downloadToCache(phrase, cachePath, config, voicePath, ttsParams, packId) {
+async function downloadToCache(phrase, cachePath, config, voicePath, ttsParams, packId, refText) {
   if (config.tts_backend === "qwen") {
-    return downloadQwen(phrase, cachePath, config, packId);
+    const voiceId = await registerVoiceWithQwen(config, voicePath, refText);
+    return downloadQwen(phrase, cachePath, config, voiceId);
   }
   return downloadChatterbox(phrase, cachePath, config, voicePath, ttsParams);
 }
@@ -378,12 +469,13 @@ export async function renderPhraseToFile(phrase, outputPath, config, pack) {
   const packId = (pack && pack.id) || "_default";
   const voicePath = (pack && pack.voicePath) || config.voice || "default.wav";
   const ttsParams = pack ? pack.tts_params : null;
+  const refText = (pack && pack.ref_text) || null;
   const customAudioFilter = (pack && pack.audio_filter) || null;
   const postProcessCmd = (pack && pack.post_process) || null;
   const echo = pack ? pack.echo !== false : true;
 
   try {
-    await downloadToCache(phrase, rawPath, config, voicePath, ttsParams, packId);
+    await downloadToCache(phrase, rawPath, config, voicePath, ttsParams, packId, refText);
     if (!existsSync(rawPath)) return false;
 
     renameSync(rawPath, workingPath);
@@ -423,6 +515,7 @@ export async function speakPhrase(phrase, config, pack) {
   const maxCache = config.max_cache_entries ?? DEFAULT_MAX_CACHE;
   const echo = pack ? pack.echo !== false : true;
   const voicePath = (pack && pack.voicePath) || config.voice || "default.wav";
+  const refText = (pack && pack.ref_text) || null;
   const customAudioFilter = (pack && pack.audio_filter) || null;
   const postProcessCmd = (pack && pack.post_process) || null;
 
@@ -430,7 +523,7 @@ export async function speakPhrase(phrase, config, pack) {
   if (existsSync(cachePath)) {
     touchFile(cachePath);
   } else {
-    await downloadToCache(phrase, cachePath, config, voicePath, ttsParams, packId);
+    await downloadToCache(phrase, cachePath, config, voicePath, ttsParams, packId, refText);
     if (!existsSync(cachePath)) return; // download failed
     if (postProcessCmd) postProcess(cachePath, postProcessCmd);
     if (customAudioFilter || echo) applyEcho(cachePath, customAudioFilter);

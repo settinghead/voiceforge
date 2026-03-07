@@ -1,4 +1,4 @@
-import { writeFileSync, unlinkSync, existsSync } from "fs";
+import { writeFileSync, readFileSync, unlinkSync, existsSync } from "fs";
 import { join } from "path";
 import { request as httpsRequest } from "https";
 import { request as httpRequest } from "http";
@@ -78,11 +78,69 @@ export function probeTtsBackend(config, backend, timeoutMs = 2000) {
   });
 }
 
-function requestTtsAudio(config, backend, pack) {
+function _registerVoiceForTest(config, pack) {
+  return new Promise((resolve) => {
+    const voicePath = pack.voicePath;
+    const refText = pack.ref_text;
+    if (!voicePath || !existsSync(voicePath) || !refText) return resolve(null);
+
+    const qwenUrl = config.qwen_tts_url || "http://localhost:8100";
+    const endpoint = `${qwenUrl}/voices`;
+
+    let audioData;
+    try { audioData = readFileSync(voicePath); } catch { return resolve(null); }
+
+    const boundary = `----VoxlertBoundary${Date.now()}`;
+    const parts = [];
+    parts.push(Buffer.from(
+      `--${boundary}\r\nContent-Disposition: form-data; name="ref_text"\r\n\r\n${refText}\r\n`,
+    ));
+    parts.push(Buffer.from(
+      `--${boundary}\r\nContent-Disposition: form-data; name="audio"; filename="voice.wav"\r\n` +
+      `Content-Type: audio/wav\r\n\r\n`,
+    ));
+    parts.push(audioData);
+    parts.push(Buffer.from(`\r\n--${boundary}--\r\n`));
+    const body = Buffer.concat(parts);
+
+    const url = new URL(endpoint);
+    const requestFn = url.protocol === "https:" ? httpsRequest : httpRequest;
+    const req = requestFn(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": `multipart/form-data; boundary=${boundary}`,
+        "Content-Length": body.length,
+      },
+      timeout: 15000,
+    }, (res) => {
+      if (res.statusCode < 200 || res.statusCode >= 300) { res.resume(); return resolve(null); }
+      const chunks = [];
+      res.on("data", (c) => chunks.push(c));
+      res.on("end", () => {
+        try {
+          const result = JSON.parse(Buffer.concat(chunks).toString());
+          resolve(result.voice_id || null);
+        } catch { resolve(null); }
+      });
+      res.on("error", () => resolve(null));
+    });
+    req.on("error", () => resolve(null));
+    req.on("timeout", () => { req.destroy(); resolve(null); });
+    req.write(body);
+    req.end();
+  });
+}
+
+async function requestTtsAudio(config, backend, pack) {
+  let voiceId = null;
+  if (backend === "qwen") {
+    voiceId = await _registerVoiceForTest(config, pack);
+  }
+
   return new Promise((resolve) => {
     const endpoint = getTtsEndpoint(config, backend);
     const body = backend === "qwen"
-      ? { text: TTS_TEST_PHRASE, pack_id: pack.id || "_default" }
+      ? { text: TTS_TEST_PHRASE, ...(voiceId ? { voice_id: voiceId } : {}) }
       : {
           text: TTS_TEST_PHRASE,
           voice_mode: "predefined",

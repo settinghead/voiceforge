@@ -120,6 +120,8 @@ npm run changeset
 
 ## Supported Voices
 
+The `sc1-adjutant` preview below uses the animated in-game portrait GIF from `assets/sc1-adjutant.gif`.
+
 | | Pack ID | Voice | Source | Status |
 |---|---------|-------|--------|--------|
 | <img src="https://raw.githubusercontent.com/settinghead/voxlert/main/assets/sc1-adjutant.gif" width="48" height="48" /> | `sc1-adjutant` | **SC1 Adjutant** | StarCraft | ✅ Available |

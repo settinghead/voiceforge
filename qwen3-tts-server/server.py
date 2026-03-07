@@ -1,21 +1,29 @@
-"""Qwen3-TTS FastAPI server for Voxlert — dual MLX / PyTorch backend."""
+"""Qwen3-TTS FastAPI server for Voxlert — dual MLX / PyTorch backend.
+
+Voices are uploaded via POST /voices (content-hashed, deduplicated) and
+referenced by voice_id in the POST /tts endpoint.
+"""
 
 import os
 import gc
 import io
 import json
+import hashlib
 import asyncio
 import concurrent.futures
 from pathlib import Path
 
 import soundfile as sf
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel
 
 RUNTIME = os.environ.get("QWEN_TTS_RUNTIME", "mlx").lower()
-PACKS_DIR = Path(__file__).resolve().parent.parent / "packs"
+VOICES_DIR = Path(os.environ.get(
+    "QWEN_TTS_VOICES_DIR",
+    str(Path(__file__).resolve().parent / "voices"),
+))
 MODELS_DIR = Path(__file__).resolve().parent / "models"
 PORT = 8100
 TTS_TIMEOUT = 60
@@ -25,12 +33,14 @@ app = FastAPI(title="Qwen3-TTS Server")
 # Filled at startup
 model = None
 model_name = None
-pack_meta: dict[str, dict] = {}      # MLX: pack_id -> {ref_audio, ref_text}
-prompt_cache: dict[str, list] = {}    # PyTorch: pack_id -> VoiceClonePromptItem list
+voice_meta: dict[str, dict] = {}           # MLX:     voice_id -> {ref_audio, ref_text}
+voice_prompt_cache: dict[str, list] = {}    # PyTorch: voice_id -> VoiceClonePromptItem list
 
 # Single-thread executor — keeps all GPU work on ONE thread to respect
 # Metal thread affinity (MLX) and MPS requirements (PyTorch).
-_gpu_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="gpu")
+_gpu_executor = concurrent.futures.ThreadPoolExecutor(
+    max_workers=1, thread_name_prefix="gpu",
+)
 
 # ---------------------------------------------------------------------------
 # MLX backend
@@ -51,38 +61,43 @@ def _load_mlx():
     print("MLX model loaded.")
 
 
-def _read_pack_meta():
-    """Read voice.wav path + ref_text for every pack (MLX backend)."""
-    for pack_dir in sorted(PACKS_DIR.iterdir()):
-        pack_json = pack_dir / "pack.json"
-        voice_wav = pack_dir / "voice.wav"
-        if not pack_json.exists() or not voice_wav.exists():
+def _load_voices_mlx():
+    """Load previously-uploaded voices from disk (MLX backend)."""
+    if not VOICES_DIR.exists():
+        return
+    for voice_dir in sorted(VOICES_DIR.iterdir()):
+        if not voice_dir.is_dir():
             continue
-        meta = json.loads(pack_json.read_text())
-        ref_text = meta.get("ref_text", "")
-        if not ref_text:
+        meta_path = voice_dir / "meta.json"
+        wav_path = voice_dir / "voice.wav"
+        if not meta_path.exists() or not wav_path.exists():
             continue
-        pack_id = pack_dir.name
-        pack_meta[pack_id] = {
-            "ref_audio": str(voice_wav),
-            "ref_text": ref_text,
+        meta = json.loads(meta_path.read_text())
+        voice_id = voice_dir.name
+        voice_meta[voice_id] = {
+            "ref_audio": str(wav_path),
+            "ref_text": meta["ref_text"],
         }
-        print(f"  pack: {pack_id}")
-    print(f"Pack metadata ready — {len(pack_meta)} packs")
+        print(f"  voice: {voice_id}")
+    print(f"Loaded {len(voice_meta)} voices")
 
 
-def _generate_mlx(text: str, ref_audio: str, ref_text: str) -> bytes:
-    """Run MLX generation, return wav bytes."""
+def _register_voice_mlx(voice_id: str, wav_path: str, ref_text: str):
+    voice_meta[voice_id] = {"ref_audio": wav_path, "ref_text": ref_text}
+
+
+def _generate_mlx(text: str, ref_audio: str | None, ref_text: str | None) -> bytes:
     import mlx.core as mx
     import numpy as np
 
+    kwargs = {"text": text}
+    if ref_audio and ref_text:
+        kwargs["ref_audio"] = ref_audio
+        kwargs["ref_text"] = ref_text
+
     chunks = []
     sample_rate = None
-    for result in model.generate(
-        text=text,
-        ref_audio=ref_audio,
-        ref_text=ref_text,
-    ):
+    for result in model.generate(**kwargs):
         chunks.append(np.array(result.audio))
         if sample_rate is None:
             sample_rate = result.sample_rate
@@ -112,7 +127,6 @@ def _load_pytorch():
     import torch
     from qwen_tts import Qwen3TTSModel
 
-    # Prefer CUDA, then MPS (Apple), then CPU
     if torch.cuda.is_available():
         device_map = "cuda"
         device_name = "cuda"
@@ -141,29 +155,37 @@ def _load_pytorch():
     print("Model loaded.")
 
 
-def _cache_pack_prompts():
-    """Pre-build voice-clone prompts for every pack (PyTorch backend)."""
-    for pack_dir in sorted(PACKS_DIR.iterdir()):
-        pack_json = pack_dir / "pack.json"
-        voice_wav = pack_dir / "voice.wav"
-        if not pack_json.exists() or not voice_wav.exists():
+def _load_voices_pytorch():
+    """Load previously-uploaded voices from disk (PyTorch backend)."""
+    if not VOICES_DIR.exists():
+        return
+    for voice_dir in sorted(VOICES_DIR.iterdir()):
+        if not voice_dir.is_dir():
             continue
-        meta = json.loads(pack_json.read_text())
-        ref_text = meta.get("ref_text", "")
-        if not ref_text:
+        meta_path = voice_dir / "meta.json"
+        wav_path = voice_dir / "voice.wav"
+        if not meta_path.exists() or not wav_path.exists():
             continue
-        pack_id = pack_dir.name
+        meta = json.loads(meta_path.read_text())
+        voice_id = voice_dir.name
         prompt = model.create_voice_clone_prompt(
-            ref_audio=str(voice_wav),
-            ref_text=ref_text,
+            ref_audio=str(wav_path),
+            ref_text=meta["ref_text"],
         )
-        prompt_cache[pack_id] = prompt
-        print(f"  cached: {pack_id}")
-    print(f"Prompt cache ready — {len(prompt_cache)} packs")
+        voice_prompt_cache[voice_id] = prompt
+        print(f"  cached voice: {voice_id}")
+    print(f"Loaded {len(voice_prompt_cache)} voices")
+
+
+def _register_voice_pytorch(voice_id: str, wav_path: str, ref_text: str):
+    prompt = model.create_voice_clone_prompt(
+        ref_audio=wav_path,
+        ref_text=ref_text,
+    )
+    voice_prompt_cache[voice_id] = prompt
 
 
 def _generate_pytorch(text: str, voice_clone_prompt) -> bytes:
-    """Run PyTorch generation, return wav bytes."""
     wavs, sr = model.generate_voice_clone(
         text=text,
         language="English",
@@ -181,17 +203,70 @@ def _generate_pytorch(text: str, voice_clone_prompt) -> bytes:
 def startup():
     if RUNTIME == "mlx":
         _load_mlx()
-        _read_pack_meta()
+        _load_voices_mlx()
     elif RUNTIME == "pytorch":
         _load_pytorch()
-        _cache_pack_prompts()
+        _load_voices_pytorch()
     else:
-        raise RuntimeError(f"Unknown QWEN_TTS_RUNTIME: {RUNTIME!r} (use 'mlx' or 'pytorch')")
+        raise RuntimeError(
+            f"Unknown QWEN_TTS_RUNTIME: {RUNTIME!r} (use 'mlx' or 'pytorch')"
+        )
+
+
+def _hash_audio(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()[:16]
+
+
+@app.post("/voices")
+async def upload_voice(
+    audio: UploadFile = File(...),
+    ref_text: str = Form(...),
+):
+    audio_bytes = await audio.read()
+    if not audio_bytes:
+        raise HTTPException(400, "Empty audio file")
+
+    voice_id = _hash_audio(audio_bytes)
+
+    # Already registered in memory — return immediately
+    if RUNTIME == "mlx" and voice_id in voice_meta:
+        return {"voice_id": voice_id}
+    if RUNTIME == "pytorch" and voice_id in voice_prompt_cache:
+        return {"voice_id": voice_id}
+
+    # Persist to disk
+    voice_dir = VOICES_DIR / voice_id
+    voice_dir.mkdir(parents=True, exist_ok=True)
+    wav_path = voice_dir / "voice.wav"
+    wav_path.write_bytes(audio_bytes)
+    (voice_dir / "meta.json").write_text(json.dumps({"ref_text": ref_text}))
+
+    # Register in memory
+    if RUNTIME == "mlx":
+        _register_voice_mlx(voice_id, str(wav_path), ref_text)
+    else:
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(
+            _gpu_executor,
+            _register_voice_pytorch, voice_id, str(wav_path), ref_text,
+        )
+
+    print(f"Registered voice {voice_id}")
+    return {"voice_id": voice_id}
+
+
+@app.get("/voices")
+def list_voices():
+    if RUNTIME == "mlx":
+        ids = sorted(voice_meta.keys())
+    else:
+        ids = sorted(voice_prompt_cache.keys())
+    return {"voices": ids}
 
 
 class TTSRequest(BaseModel):
     text: str
-    pack_id: str
+    voice_id: str | None = None
 
 
 @app.post("/tts")
@@ -199,27 +274,34 @@ async def tts(req: TTSRequest):
     loop = asyncio.get_running_loop()
 
     if RUNTIME == "mlx":
-        if req.pack_id not in pack_meta:
-            raise HTTPException(404, f"Unknown pack_id: {req.pack_id}")
-        meta = pack_meta[req.pack_id]
+        ref_audio = None
+        ref_text = None
+        if req.voice_id:
+            if req.voice_id not in voice_meta:
+                raise HTTPException(404, f"Unknown voice_id: {req.voice_id}")
+            meta = voice_meta[req.voice_id]
+            ref_audio = meta["ref_audio"]
+            ref_text = meta["ref_text"]
         try:
             wav_bytes = await asyncio.wait_for(
                 loop.run_in_executor(
                     _gpu_executor,
-                    _generate_mlx, req.text, meta["ref_audio"], meta["ref_text"],
+                    _generate_mlx, req.text, ref_audio, ref_text,
                 ),
                 timeout=TTS_TIMEOUT,
             )
         except asyncio.TimeoutError:
             raise HTTPException(504, "TTS generation timed out")
     else:
-        if req.pack_id not in prompt_cache:
-            raise HTTPException(404, f"Unknown pack_id: {req.pack_id}")
+        if not req.voice_id:
+            raise HTTPException(400, "voice_id is required for PyTorch backend")
+        if req.voice_id not in voice_prompt_cache:
+            raise HTTPException(404, f"Unknown voice_id: {req.voice_id}")
         try:
             wav_bytes = await asyncio.wait_for(
                 loop.run_in_executor(
                     _gpu_executor,
-                    _generate_pytorch, req.text, prompt_cache[req.pack_id],
+                    _generate_pytorch, req.text, voice_prompt_cache[req.voice_id],
                 ),
                 timeout=TTS_TIMEOUT,
             )
@@ -231,10 +313,11 @@ async def tts(req: TTSRequest):
 
 @app.get("/health")
 def health():
-    packs = sorted(pack_meta.keys()) if RUNTIME == "mlx" else sorted(prompt_cache.keys())
     if RUNTIME == "mlx":
+        voices = sorted(voice_meta.keys())
         device = "apple-silicon-mlx"
     else:
+        voices = sorted(voice_prompt_cache.keys())
         import torch
         if torch.cuda.is_available():
             device = "cuda"
@@ -246,7 +329,7 @@ def health():
         "model": model_name,
         "runtime": RUNTIME,
         "device": device,
-        "cached_packs": packs,
+        "voices": voices,
     }
 
 
