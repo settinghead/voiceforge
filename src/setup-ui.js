@@ -14,12 +14,12 @@ const ANSI = {
 };
 
 const LOGO_LINES = [
-  "██╗   ██╗ ██████╗ ██╗ ██████╗███████╗███████╗ ██████╗ ██████╗  ██████╗ ███████╗",
-  "██║   ██║██╔═══██╗██║██╔════╝██╔════╝██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝",
-  "██║   ██║██║   ██║██║██║     █████╗  █████╗  ██║   ██║██████╔╝██║  ███╗█████╗  ",
-  "╚██╗ ██╔╝██║   ██║██║██║     ██╔══╝  ██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝  ",
-  " ╚████╔╝ ╚██████╔╝██║╚██████╗███████╗██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗",
-  "  ╚═══╝   ╚═════╝ ╚═╝ ╚═════╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝",
+  "██╗   ██╗ ██████╗ ██╗  ██╗██╗     ███████╗██████╗ ████████╗",
+  "██║   ██║██╔═══██╗╚██╗██╔╝██║     ██╔════╝██╔══██╗╚══██╔══╝",
+  "██║   ██║██║   ██║ ╚███╔╝ ██║     █████╗  ██████╔╝   ██║   ",
+  "╚██╗ ██╔╝██║   ██║ ██╔██╗ ██║     ██╔══╝  ██╔══██╗   ██║   ",
+  " ╚████╔╝ ╚██████╔╝██╔╝ ██╗███████╗███████╗██║  ██║   ██║   ",
+  "  ╚═══╝   ╚═════╝ ╚═╝  ╚═╝╚══════╝╚══════╝╚═╝  ╚═╝   ╚═╝   ",
 ];
 
 function color(text, code) {
@@ -84,7 +84,7 @@ function animatedLogoLine(text, phase = 0, shimmerIndex = -1) {
   }).join("") + ANSI.reset;
 }
 
-function centerLine(text, width = 92) {
+function centerLine(text, width = 59) {
   const padding = Math.max(0, Math.floor((width - text.length) / 2));
   return `${" ".repeat(padding)}${text}`;
 }
@@ -111,18 +111,18 @@ function formatCurrentConfig(config, installedPlatforms) {
 
 function renderLogoFrame(config, installedPlatforms, shimmerStep = -1) {
   const current = formatCurrentConfig(config, installedPlatforms).map((line) => `  ${line}`);
-  const rule = color("┈".repeat(92), ANSI.dim);
+  const rule = color("┈".repeat(59), ANSI.dim);
   const glow = color("SYNTHETIC VOICE NOTIFICATIONS FOR AGENT WORKFLOWS", ANSI.cyan);
   const logo = LOGO_LINES.map((line, index) => {
     const shimmerIndex = shimmerStep >= 0 ? shimmerStep - index * 3 : -1;
     const phase = shimmerStep >= 0 ? shimmerStep * 0.015 + index * 0.02 : index * 0.02;
-    return centerLine(animatedLogoLine(line, phase, shimmerIndex), 92);
+    return centerLine(animatedLogoLine(line, phase, shimmerIndex), 59);
   });
   return [
     "",
     rule,
     ...logo,
-    centerLine(glow, 92),
+    centerLine(glow, 59),
     rule,
     "",
     ...current,
