@@ -57,7 +57,7 @@ You will also want:
 
 The setup wizard auto-detects running TTS backends. If none are running yet, setup still completes, but you will only get text notifications and fallback phrases until you start one and rerun setup.
 
-> **Can't run local TTS?** Both backends require a GPU or Apple Silicon. If that's a blocker, [request early access to Pipevox](https://settinghead.github.io/pipevox-signup) — a hosted option that needs no local TTS setup.
+> **Can't run local TTS?** Both backends require a GPU or Apple Silicon. Voxlert still works without TTS — you'll get text notifications and fallback phrases. Need help? [Post in Setup help & troubleshooting](https://github.com/settinghead/voxlert/discussions/6).
 
 ### 2. Install and run setup
 
@@ -366,9 +366,7 @@ See [Creating Voice Packs](docs/creating-voice-packs.md) for building your own c
 
 - **Protoss Advisor** voice pack inspired by [openclaw/protoss-voice](https://playbooks.com/skills/openclaw/skills/protoss-voice)
 
-## Considering a hosted version?
-
-If the local TTS setup is a blocker, [vote or comment in this Discussion](https://github.com/settinghead/voxlert/discussions/5). A hosted API (no local Python or model required) is on the roadmap if demand is there.
+## Need help?
 
 Having trouble with setup? Post in the [Setup help & troubleshooting Discussion](https://github.com/settinghead/voxlert/discussions/6).
 

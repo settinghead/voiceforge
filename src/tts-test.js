@@ -222,8 +222,7 @@ export async function chooseTtsBackend(config, { qwenUp, chatterboxUp }) {
     : "";
 
   if (!qwenUp && !chatterboxUp) {
-    printStatus("Note", "Local TTS needs a GPU or Apple Silicon. If that's a blocker:");
-    printStatus("Hosted option", "https://settinghead.github.io/pipevox-signup");
+    printStatus("Note", "Local TTS needs a GPU or Apple Silicon. Setup still works — you'll get text notifications until TTS is running.");
     console.log("");
   }
 
@@ -302,7 +301,7 @@ export async function verifyTtsSetup(config, backend) {
     }
 
     printWarning("Still not working? Local TTS requires specific hardware (Apple Silicon or NVIDIA GPU).");
-    printStatus("Hosted option", "https://settinghead.github.io/pipevox-signup — no local TTS needed");
+    printStatus("Setup help", "https://github.com/settinghead/voxlert/discussions/6");
     printStatus(`${label} docs`, docsUrl);
     console.log("");
   }

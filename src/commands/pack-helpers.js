@@ -48,8 +48,7 @@ export async function testPipeline(text, pack) {
     console.log("TTS failed — no audio was produced.");
     console.log("Make sure your TTS server is running (see: voxlert setup).");
     console.log("");
-    console.log("Can't run local TTS? Request hosted access:");
-    console.log("  https://settinghead.github.io/pipevox-signup");
+    console.log("Need help? https://github.com/settinghead/voxlert/discussions/6");
   } else {
     console.log("Done.");
   }
