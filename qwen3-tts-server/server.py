@@ -19,6 +19,8 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel
 
+import cache
+
 RUNTIME = os.environ.get("QWEN_TTS_RUNTIME", "mlx").lower()
 VOICES_DIR = Path(os.environ.get(
     "QWEN_TTS_VOICES_DIR",
@@ -271,6 +273,11 @@ class TTSRequest(BaseModel):
 
 @app.post("/tts")
 async def tts(req: TTSRequest):
+    cache_key = (req.text, req.voice_id)
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return Response(content=cached, media_type="audio/wav")
+
     loop = asyncio.get_running_loop()
 
     if RUNTIME == "mlx":
@@ -308,6 +315,7 @@ async def tts(req: TTSRequest):
         except asyncio.TimeoutError:
             raise HTTPException(504, "TTS generation timed out")
 
+    cache.put(cache_key, wav_bytes)
     return Response(content=wav_bytes, media_type="audio/wav")
 
 
