@@ -235,6 +235,9 @@ export async function chooseTtsBackend(config, { qwenUp, chatterboxUp }) {
     return "chatterbox";
   }
 
+  printStatus("Note", "Local TTS needs a GPU or Apple Silicon. If that's a blocker:");
+  printStatus("Hosted option", "https://settinghead.github.io/pipevox-signup");
+  console.log("");
   return select({
     message: "Choose the TTS backend you are setting up. Qwen TTS is recommended for a more natural voice.",
     choices: getTtsChoices(config.tts_backend),
@@ -292,7 +295,8 @@ export async function verifyTtsSetup(config, backend) {
       return;
     }
 
-    printWarning("No workaround here. Keep troubleshooting and retry until you hear the voice.");
+    printWarning("Still not working? Local TTS requires specific hardware (Apple Silicon or NVIDIA GPU).");
+    printStatus("Hosted option", "https://settinghead.github.io/pipevox-signup — no local TTS needed");
     printStatus(`${label} docs`, docsUrl);
     console.log("");
     await confirm({
