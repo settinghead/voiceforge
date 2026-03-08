@@ -42,8 +42,17 @@ export async function testPipeline(text, pack) {
     config,
     overlayColors: activePack.overlay_colors,
   });
-  await speakPhrase(phrase, config, activePack);
-  console.log("Done.");
+  const ok = await speakPhrase(phrase, config, activePack);
+  if (ok === false) {
+    console.log("");
+    console.log("TTS failed — no audio was produced.");
+    console.log("Make sure your TTS server is running (see: voxlert setup).");
+    console.log("");
+    console.log("Can't run local TTS? Request hosted access:");
+    console.log("  https://settinghead.github.io/pipevox-signup");
+  } else {
+    console.log("Done.");
+  }
 }
 
 export function packList() {

@@ -524,7 +524,7 @@ export async function speakPhrase(phrase, config, pack) {
     touchFile(cachePath);
   } else {
     await downloadToCache(phrase, cachePath, config, voicePath, ttsParams, packId, refText);
-    if (!existsSync(cachePath)) return; // download failed
+    if (!existsSync(cachePath)) return false; // download failed
     if (postProcessCmd) postProcess(cachePath, postProcessCmd);
     if (customAudioFilter || echo) applyEcho(cachePath, customAudioFilter);
     normalizeVolume(cachePath);
