@@ -179,7 +179,7 @@ function ensurePacks() {
   }
 }
 
-export async function runSetup() {
+export async function runSetup({ nonInteractive = false } = {}) {
   // Ensure config exists
   ensureConfig();
   ensurePacks();
@@ -201,6 +201,11 @@ export async function runSetup() {
   process.on("SIGINT", () => { savePartial(); process.exit(130); });
 
   try {
+
+  if (nonInteractive) {
+    return await runNonInteractiveSetup(config);
+  }
+
   const currentBackend = config.llm_backend || "openrouter";
   const currentProvider = getProvider(currentBackend);
   const currentModel = config.llm_model || currentProvider?.defaultModel || "default";
@@ -491,6 +496,102 @@ export async function runSetup() {
   saveConfig(config);
 
   // --- Summary ---
+  printSetupSummary(config, "skip", []);
+
+  } catch (err) {
+    // Inquirer throws on Ctrl+C (ExitPromptError); save partial progress
+    if (err && (err.name === "ExitPromptError" || err.message === "Prompt was canceled")) {
+      savePartial();
+      return;
+    }
+    throw err;
+  }
+}
+
+/**
+ * Non-interactive setup: accept all defaults, skip prompts.
+ * Useful for CI, Docker, and automated testing.
+ */
+async function runNonInteractiveSetup(config) {
+  console.log("Running non-interactive setup (--yes)...\n");
+
+  // Step 1–2: LLM — skip (fallback phrases only)
+  printStep(1, "LLM Provider");
+  printStatus("LLM", "Skipped (fallback phrases only)");
+  config.llm_api_key = null;
+  config.openrouter_api_key = null;
+  console.log("");
+
+  // Step 3: Download default voice packs
+  printStep(3, "Download voice packs");
+  mkdirSync(PACKS_DIR, { recursive: true });
+
+  const existingPackIds = new Set();
+  try {
+    for (const entry of readdirSync(PACKS_DIR, { withFileTypes: true })) {
+      if (entry.isDirectory() && existsSync(join(PACKS_DIR, entry.name, "pack.json"))) {
+        existingPackIds.add(entry.name);
+      }
+    }
+  } catch {
+    // PACKS_DIR may not exist yet
+  }
+
+  const baseUrl = getPackRegistryBaseUrl();
+  for (const packId of DEFAULT_DOWNLOAD_PACK_IDS) {
+    if (existingPackIds.has(packId)) continue;
+    const pack = PACK_REGISTRY.find((p) => p.id === packId);
+    const label = pack ? pack.name : packId;
+    process.stdout.write(`  Downloading ${label}... `);
+    try {
+      await downloadPack(packId, baseUrl);
+      console.log("done.");
+    } catch (err) {
+      console.log(`failed (${err.message}).`);
+    }
+  }
+  console.log("");
+
+  // Step 4: Voice — random
+  printStep(4, "Voice Pack");
+  config.active_pack = "random";
+  printStatus("Voice", "random");
+  console.log("");
+
+  // Step 5: TTS — detect and pick best available, skip verification
+  printStep(5, "TTS Server");
+
+  process.stdout.write("  Checking Chatterbox... ");
+  const chatterboxUp = await probeTtsBackend(config, "chatterbox");
+  console.log(chatterboxUp ? "detected!" : "not running");
+
+  process.stdout.write("  Checking Qwen TTS... ");
+  const qwenUp = await probeTtsBackend(config, "qwen");
+  console.log(qwenUp ? "detected!" : "not running");
+
+  if (qwenUp) {
+    config.tts_backend = "qwen";
+  } else if (chatterboxUp) {
+    config.tts_backend = "chatterbox";
+  } else {
+    config.tts_backend = config.tts_backend || "qwen";
+  }
+  printStatus("TTS", config.tts_backend + (qwenUp || chatterboxUp ? "" : " (not running — text notifications only)"));
+  console.log("");
+
+  // Step 6: Hooks — skip
+  printStep(6, "Hooks");
+  printStatus("Hooks", "Skipped (run 'voxlert setup' to install hooks later)");
+  console.log("");
+
+  // Save config
+  saveConfig(config);
+
+  // Summary
+  printSetupSummary(config, "skip", []);
+}
+
+function printSetupSummary(config, chosenProvider, selectedPlatforms) {
   console.log("");
   console.log(highlight("=== Setup Complete ==="));
   console.log("");
@@ -516,13 +617,4 @@ export async function runSetup() {
   }
   printStatus("Reconfigure", "voxlert setup");
   console.log("");
-
-  } catch (err) {
-    // Inquirer throws on Ctrl+C (ExitPromptError); save partial progress
-    if (err && (err.name === "ExitPromptError" || err.message === "Prompt was canceled")) {
-      savePartial();
-      return;
-    }
-    throw err;
-  }
 }

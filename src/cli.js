@@ -23,6 +23,13 @@ function createHelpText() {
 
 async function maybeRunSetup(command) {
   if (command.skipSetupWizard || existsSync(STATE_DIR)) return false;
+  const args = process.argv.slice(2);
+  const nonInteractive = args.includes("--yes") || args.includes("-y");
+  if (nonInteractive) {
+    const { runSetup } = await import("./setup.js");
+    await runSetup({ nonInteractive: true });
+    return true;
+  }
   console.log("Welcome to Voxlert! First time here?\n");
   const select = (await import("@inquirer/select")).default;
   const action = await select({
