@@ -36,64 +36,68 @@ function validateApiKey(providerId, apiKey) {
     const provider = getProvider(providerId);
     if (!provider) return resolve({ ok: false, error: "Unknown provider" });
 
-    let url;
-    let options;
+    try {
+      let url;
+      let options;
 
-    const base = provider.baseUrl.replace(/\/+$/, "");
+      const base = provider.baseUrl.replace(/\/+$/, "");
 
-    if (provider.format === "anthropic") {
-      // Anthropic: POST to /v1/messages with a tiny request
-      url = new URL(`${base}/v1/messages`);
-      const authHeaders = provider.authHeader(apiKey);
-      const payload = JSON.stringify({
-        model: provider.defaultModel,
-        max_tokens: 1,
-        messages: [{ role: "user", content: "hi" }],
-      });
-      options = {
-        method: "POST",
-        headers: {
-          ...authHeaders,
-          "Content-Type": "application/json",
-          "Content-Length": Buffer.byteLength(payload),
-        },
-        timeout: 8000,
-      };
-      const req = https.request(url, options, (res) => {
-        let data = "";
-        res.on("data", (chunk) => (data += chunk));
-        res.on("end", () => {
-          if (res.statusCode === 401) return resolve({ ok: false, error: "Invalid API key" });
-          if (res.statusCode === 403) return resolve({ ok: false, error: "API key lacks permissions" });
-          resolve({ ok: res.statusCode < 500 });
+      if (provider.format === "anthropic") {
+        // Anthropic: POST to /v1/messages with a tiny request
+        url = new URL(`${base}/v1/messages`);
+        const authHeaders = provider.authHeader(apiKey);
+        const payload = JSON.stringify({
+          model: provider.defaultModel,
+          max_tokens: 1,
+          messages: [{ role: "user", content: "hi" }],
         });
-      });
-      req.on("error", (err) => resolve({ ok: false, error: err.message }));
-      req.on("timeout", () => { req.destroy(); resolve({ ok: false, error: "Timeout" }); });
-      req.write(payload);
-      req.end();
-    } else {
-      // OpenAI-compatible: GET /models
-      url = new URL(`${base}/models`);
-      const authHeaders = provider.authHeader(apiKey);
-      options = {
-        method: "GET",
-        headers: { ...authHeaders },
-        timeout: 8000,
-      };
-      const reqFn = url.protocol === "https:" ? https.request : http.request;
-      const req = reqFn(url, options, (res) => {
-        let data = "";
-        res.on("data", (chunk) => (data += chunk));
-        res.on("end", () => {
-          if (res.statusCode === 401) return resolve({ ok: false, error: "Invalid API key" });
-          if (res.statusCode === 403) return resolve({ ok: false, error: "API key lacks permissions" });
-          resolve({ ok: res.statusCode >= 200 && res.statusCode < 300 });
+        options = {
+          method: "POST",
+          headers: {
+            ...authHeaders,
+            "Content-Type": "application/json",
+            "Content-Length": Buffer.byteLength(payload),
+          },
+          timeout: 8000,
+        };
+        const req = https.request(url, options, (res) => {
+          let data = "";
+          res.on("data", (chunk) => (data += chunk));
+          res.on("end", () => {
+            if (res.statusCode === 401) return resolve({ ok: false, error: "Invalid API key" });
+            if (res.statusCode === 403) return resolve({ ok: false, error: "API key lacks permissions" });
+            resolve({ ok: res.statusCode < 500 });
+          });
         });
-      });
-      req.on("error", (err) => resolve({ ok: false, error: err.message }));
-      req.on("timeout", () => { req.destroy(); resolve({ ok: false, error: "Timeout" }); });
-      req.end();
+        req.on("error", (err) => resolve({ ok: false, error: err.message }));
+        req.on("timeout", () => { req.destroy(); resolve({ ok: false, error: "Timeout" }); });
+        req.write(payload);
+        req.end();
+      } else {
+        // OpenAI-compatible: GET /models
+        url = new URL(`${base}/models`);
+        const authHeaders = provider.authHeader(apiKey);
+        options = {
+          method: "GET",
+          headers: { ...authHeaders },
+          timeout: 8000,
+        };
+        const reqFn = url.protocol === "https:" ? https.request : http.request;
+        const req = reqFn(url, options, (res) => {
+          let data = "";
+          res.on("data", (chunk) => (data += chunk));
+          res.on("end", () => {
+            if (res.statusCode === 401) return resolve({ ok: false, error: "Invalid API key" });
+            if (res.statusCode === 403) return resolve({ ok: false, error: "API key lacks permissions" });
+            resolve({ ok: res.statusCode >= 200 && res.statusCode < 300 });
+          });
+        });
+        req.on("error", (err) => resolve({ ok: false, error: err.message }));
+        req.on("timeout", () => { req.destroy(); resolve({ ok: false, error: "Timeout" }); });
+        req.end();
+      }
+    } catch (err) {
+      resolve({ ok: false, error: err.message });
     }
   });
 }
@@ -182,6 +186,21 @@ export async function runSetup() {
   mkdirSync(CACHE_DIR, { recursive: true });
 
   const config = loadConfig();
+
+  // Save partial progress on Ctrl+C so completed steps are preserved
+  const savePartial = () => {
+    try {
+      saveConfig(config);
+      console.log("");
+      printWarning("Setup interrupted — progress saved. Run 'voxlert setup' to resume.");
+      console.log("");
+    } catch {
+      // ignore write errors during exit
+    }
+  };
+  process.on("SIGINT", () => { savePartial(); process.exit(130); });
+
+  try {
   const currentBackend = config.llm_backend || "openrouter";
   const currentProvider = getProvider(currentBackend);
   const currentModel = config.llm_model || currentProvider?.defaultModel || "default";
@@ -236,7 +255,7 @@ export async function runSetup() {
       ? `${existingKey.slice(0, 4)}…${existingKey.slice(-4)}`
       : "";
 
-    apiKey = await input({
+    apiKey = (await input({
       message: "Paste your API key:",
       default: existingKey || undefined,
       transformer: (val) => {
@@ -245,7 +264,7 @@ export async function runSetup() {
         if (val.length <= 8) return "****";
         return val.slice(0, 4) + "…" + val.slice(-4);
       },
-    });
+    })).trim();
 
     if (apiKey) {
       process.stdout.write("  Validating key... ");
@@ -321,7 +340,7 @@ export async function runSetup() {
   }));
 
   const toDownload = await checkbox({
-    message: "Which voice packs do you want to install? (downloaded from GitHub)",
+    message: "Which voice packs do you want to install? (space = toggle, enter = confirm)",
     choices: packChoices,
     required: false,
   });
@@ -360,9 +379,9 @@ export async function runSetup() {
     ];
 
     const chosenPack = await select({
-      message: "Choose a voice pack:",
+      message: "Choose default voice:",
       choices: packChoices,
-      default: active || "sc1-kerrigan-infested",
+      default: active || "random",
     });
     config.active_pack = chosenPack;
   } else {
@@ -378,11 +397,11 @@ export async function runSetup() {
   printStatus("Voice test", `Uses the voice you picked in Step 4 (${config.active_pack || "default"})`);
   console.log("");
 
-  process.stdout.write("  Checking Chatterbox (port 8004)... ");
+  process.stdout.write("  Checking Chatterbox... ");
   const chatterboxUp = await probeTtsBackend(config, "chatterbox");
   console.log(chatterboxUp ? "detected!" : "not running");
 
-  process.stdout.write("  Checking Qwen TTS (port 8100)...   ");
+  process.stdout.write("  Checking Qwen TTS... ");
   const qwenUp = await probeTtsBackend(config, "qwen");
   console.log(qwenUp ? "detected!" : "not running");
 
@@ -415,7 +434,7 @@ export async function runSetup() {
   ];
 
   const selectedPlatforms = await checkbox({
-    message: "Which platforms do you want to install hooks for?",
+    message: "Which platforms do you want to install hooks for? (space = toggle, enter = confirm)",
     choices: platformChoices,
     required: false,
   });
@@ -497,4 +516,13 @@ export async function runSetup() {
   }
   printStatus("Reconfigure", "voxlert setup");
   console.log("");
+
+  } catch (err) {
+    // Inquirer throws on Ctrl+C (ExitPromptError); save partial progress
+    if (err && (err.name === "ExitPromptError" || err.message === "Prompt was canceled")) {
+      savePartial();
+      return;
+    }
+    throw err;
+  }
 }

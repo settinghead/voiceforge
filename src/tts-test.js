@@ -2,7 +2,6 @@ import { writeFileSync, readFileSync, unlinkSync, existsSync } from "fs";
 import { join } from "path";
 import { request as httpsRequest } from "https";
 import { request as httpRequest } from "http";
-import confirm from "@inquirer/confirm";
 import select from "@inquirer/select";
 import { playFile } from "./audio.js";
 import { loadPack } from "./packs.js";
@@ -38,15 +37,15 @@ export function getTtsChoices(currentBackend) {
   return [
     {
       name: currentBackend === "qwen"
-        ? "Qwen TTS (recommended, current, more natural voice, port 8100)"
-        : "Qwen TTS (recommended, more natural voice, port 8100)",
+        ? "Qwen TTS (recommended, current, more natural voice)"
+        : "Qwen TTS (recommended, more natural voice)",
       value: "qwen",
       description: `Setup docs: ${QWEN_DOCS_URL}`,
     },
     {
       name: currentBackend === "chatterbox"
-        ? "Chatterbox (current, port 8004)"
-        : "Chatterbox (port 8004)",
+        ? "Chatterbox (current)"
+        : "Chatterbox",
       value: "chatterbox",
       description: `Setup docs: ${CHATTERBOX_DOCS_URL}`,
     },
@@ -217,26 +216,12 @@ export async function runTtsSample(config, backend) {
 }
 
 export async function chooseTtsBackend(config, { qwenUp, chatterboxUp }) {
-  if (qwenUp && chatterboxUp) {
-    return select({
-      message: "Both TTS servers detected. Which one to use? Qwen TTS is recommended for a more natural voice.",
-      choices: getTtsChoices(config.tts_backend),
-      default: config.tts_backend || "qwen",
-    });
-  }
-
-  if (qwenUp) {
-    printSuccess("Using Qwen TTS.");
-    return "qwen";
-  }
-
-  if (chatterboxUp) {
-    printSuccess("Using Chatterbox.");
-    return "chatterbox";
-  }
-
+  const detected = [qwenUp && "Qwen TTS", chatterboxUp && "Chatterbox"].filter(Boolean);
+  const hint = detected.length > 0
+    ? `Detected: ${detected.join(", ")}. `
+    : "";
   return select({
-    message: "Choose the TTS backend you are setting up. Qwen TTS is recommended for a more natural voice.",
+    message: `${hint}Choose the TTS backend. Qwen TTS is recommended for a more natural voice.`,
     choices: getTtsChoices(config.tts_backend),
     default: config.tts_backend || "qwen",
   });
@@ -246,20 +231,31 @@ export async function verifyTtsSetup(config, backend) {
   const label = getTtsLabel(backend);
   const docsUrl = getTtsDocsUrl(backend);
 
+  const retryOrSkip = [
+    { name: "I have set up the TTS server. Try again.", value: "retry" },
+    { name: "Skip setup (you won't hear any voice!)", value: "skip" },
+  ];
+
+  let attempt = 0;
   while (true) {
+    attempt++;
+    if (attempt > 1) {
+      console.log("\n  ── Retry #" + (attempt - 1) + " ──");
+    }
     console.log("");
     process.stdout.write(`  Checking ${label}... `);
     const backendUp = await probeTtsBackend(config, backend);
     console.log(backendUp ? "detected!" : "not running");
 
     if (!backendUp) {
-      printWarning(`${label} is not running yet. Finish that setup and come back here to try again.`);
+      printWarning(`${label} is not running yet.`);
       printStatus(`${label} docs`, docsUrl);
       console.log("");
-      await confirm({
-        message: `Press enter after ${label} is running to test again.`,
-        default: true,
-      });
+      const action = await select({ message: "What would you like to do?", choices: retryOrSkip });
+      if (action === "skip") {
+        printWarning("Skipped TTS verification. Voice notifications won't work until the server is running.");
+        return;
+      }
       continue;
     }
 
@@ -268,36 +264,33 @@ export async function verifyTtsSetup(config, backend) {
     console.log(ok ? "played." : "failed.");
 
     if (!ok) {
-      printWarning(`The ${label} test failed. Keep the docs open, fix the server, and try again.`);
+      printWarning(`The ${label} test failed.`);
       printStatus(`${label} docs`, docsUrl);
       console.log("");
-      await confirm({
-        message: `Press enter to retry the ${label} test.`,
-        default: true,
-      });
+      const action = await select({ message: "What would you like to do?", choices: retryOrSkip });
+      if (action === "skip") {
+        printWarning("Skipped TTS verification. Voice notifications won't work until the server is fixed.");
+        return;
+      }
       continue;
     }
 
     const heardVoice = await select({
       message: `Did you hear the ${label} voice test?`,
       choices: [
-        { name: "Yes", value: true },
-        { name: "No", value: false },
+        { name: "Yes", value: "yes" },
+        { name: "No, try again", value: "retry" },
+        { name: "Skip (you won't hear any voice!)", value: "skip" },
       ],
-      default: true,
     });
 
-    if (heardVoice) {
+    if (heardVoice === "yes") {
       printSuccess(`${label} verified.`);
       return;
     }
-
-    printWarning("No workaround here. Keep troubleshooting and retry until you hear the voice.");
-    printStatus(`${label} docs`, docsUrl);
-    console.log("");
-    await confirm({
-      message: "Press enter to play the test again.",
-      default: true,
-    });
+    if (heardVoice === "skip") {
+      printWarning("Skipped TTS verification. Voice notifications won't work until the server is fixed.");
+      return;
+    }
   }
 }
