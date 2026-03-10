@@ -243,7 +243,19 @@ flowchart TD
 
 ### What does it cost?
 
-The LLM step (turning events into in-character phrases) uses a small, cheap model through OpenRouter — not Claude. Each notification costs a fraction of a cent, so even heavy use is negligible. TTS and audio run entirely on your machine at zero cost. You can also skip the LLM entirely and use only fallback phrases from the voice pack (no API key needed).
+The LLM step (turning events into in-character phrases) uses a small, cheap model — not Claude. Each notification costs a fraction of a cent via OpenRouter, or **zero** if you use a local LLM. TTS and audio run entirely on your machine at zero cost. You can also skip the LLM entirely and use only fallback phrases from the voice pack (no API key needed).
+
+### Fully local mode (no cloud at all)
+
+Voxlert supports local LLM servers for the phrase generation step. Run `voxlert setup` and choose **"Local LLM (Ollama / LM Studio / llama.cpp)"**. Any OpenAI-compatible local server works:
+
+| Server | Default URL |
+|--------|------------|
+| [Ollama](https://ollama.ai) | `http://localhost:11434/v1` |
+| [LM Studio](https://lmstudio.ai) | `http://localhost:1234/v1` |
+| [llama.cpp server](https://github.com/ggerganov/llama.cpp) | `http://localhost:8080/v1` |
+
+Combined with local TTS (Qwen3-TTS), this gives you a completely offline setup — no API keys, no cloud, no cost.
 
 ## Configuration
 

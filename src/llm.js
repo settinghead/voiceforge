@@ -91,7 +91,7 @@ function generatePhraseCloud(context, config, style, llmTemperature, examples) {
     if (!provider) return resolve({ phrase: null, fallbackReason: "unknown_provider", detail: backendId });
 
     const apiKey = getApiKey(config);
-    if (!apiKey) return resolve({ phrase: null, fallbackReason: "no_api_key" });
+    if (!apiKey && !provider.local) return resolve({ phrase: null, fallbackReason: "no_api_key" });
 
     const model = getModel(config);
     const messages = [

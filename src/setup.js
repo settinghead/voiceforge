@@ -103,6 +103,28 @@ function validateApiKey(providerId, apiKey) {
 }
 
 /**
+ * Quick connectivity check for a local LLM server.
+ * Tries GET /v1/models — works for Ollama, LM Studio, llama.cpp, etc.
+ */
+function validateLocalLlm(baseUrl) {
+  return new Promise((resolve) => {
+    try {
+      const url = new URL("/v1/models", baseUrl);
+      const reqFn = url.protocol === "https:" ? https.request : http.request;
+      const req = reqFn(url, { method: "GET", timeout: 3000 }, (res) => {
+        res.resume();
+        resolve({ ok: res.statusCode >= 200 && res.statusCode < 500 });
+      });
+      req.on("error", (err) => resolve({ ok: false, error: err.message }));
+      req.on("timeout", () => { req.destroy(); resolve({ ok: false, error: "timeout" }); });
+      req.end();
+    } catch (err) {
+      resolve({ ok: false, error: err.message });
+    }
+  });
+}
+
+/**
  * Fetch a URL and return the response body as a Buffer.
  * Rejects on non-2xx or network error.
  */
@@ -243,7 +265,7 @@ export async function runSetup({ nonInteractive = false } = {}) {
   const chosenProvider = await select({
     message: "Which LLM provider would you like to use?",
     choices: providerChoices,
-    default: currentBackend !== "local" ? currentBackend : "openrouter",
+    default: currentBackend || "openrouter",
   });
 
   let apiKey = null;
@@ -253,69 +275,104 @@ export async function runSetup({ nonInteractive = false } = {}) {
 
     const provider = getProvider(chosenProvider);
 
-    // --- Step 2: API Key ---
-    console.log("");
-    printStep(2, "API Key");
-    printStatus("Get a key at:", provider.signupUrl);
-    console.log("");
+    if (provider.local) {
+      // --- Step 2: Local LLM Server ---
+      console.log("");
+      printStep(2, "Local LLM Server");
+      printStatus("Supported", "Ollama, LM Studio, llama.cpp, vLLM, LocalAI");
+      printStatus("Default ports", "Ollama :11434 · LM Studio :1234 · llama.cpp :8080");
+      console.log("");
 
-    const existingKey = config.llm_api_key ?? config.openrouter_api_key ?? "";
-    const maskedExisting = existingKey
-      ? `${existingKey.slice(0, 4)}…${existingKey.slice(-4)}`
-      : "";
+      const existingUrl = config.local_api?.base_url || provider.baseUrl;
+      const localUrl = (await input({
+        message: "Server URL:",
+        default: existingUrl,
+      })).trim();
 
-    apiKey = (await input({
-      message: "Paste your API key:",
-      default: existingKey || undefined,
-      transformer: (val) => {
-        if (!val) return maskedExisting || "";
-        if (val === existingKey) return maskedExisting;
-        if (val.length <= 8) return "****";
-        return val.slice(0, 4) + "…" + val.slice(-4);
-      },
-    })).trim();
+      const existingModel = config.local_api?.model || provider.defaultModel;
+      const localModel = (await input({
+        message: "Model name (must be already pulled/loaded):",
+        default: existingModel,
+      })).trim();
 
-    if (apiKey) {
-      process.stdout.write("  Validating key... ");
-      const result = await validateApiKey(chosenProvider, apiKey);
-      if (result.ok) {
-        console.log("valid!\n");
-      } else {
-        console.log(`could not validate (${result.error || "unknown error"})`);
-        const proceed = await confirm({
-          message: "Use this key anyway?",
-          default: true,
-        });
-        if (!proceed) {
-          apiKey = null;
-          printWarning("Skipped. Set it later with: voxlert config set llm_api_key <key>");
-          console.log("");
-        } else {
-          console.log("");
-        }
+      config.local_api = {
+        ...config.local_api,
+        base_url: localUrl,
+        model: localModel,
+      };
+      config.llm_model = localModel;
+      config.llm_api_key = null;
+      config.openrouter_api_key = null;
+
+      // Quick connectivity check
+      process.stdout.write("  Checking server... ");
+      const result = await validateLocalLlm(localUrl);
+      console.log(result.ok ? "connected!" : `not reachable (${result.error})`);
+      if (!result.ok) {
+        printWarning("Server not detected. Voxlert will use fallback phrases until the server is running.");
       }
+      console.log("");
+    } else {
+      // --- Step 2: API Key ---
+      console.log("");
+      printStep(2, "API Key");
+      printStatus("Get a key at:", provider.signupUrl);
+      console.log("");
+
+      const existingKey = config.llm_api_key ?? config.openrouter_api_key ?? "";
+      const maskedExisting = existingKey
+        ? `${existingKey.slice(0, 4)}…${existingKey.slice(-4)}`
+        : "";
+
+      apiKey = (await input({
+        message: "Paste your API key:",
+        default: existingKey || undefined,
+        transformer: (val) => {
+          if (!val) return maskedExisting || "";
+          if (val === existingKey) return maskedExisting;
+          if (val.length <= 8) return "****";
+          return val.slice(0, 4) + "…" + val.slice(-4);
+        },
+      })).trim();
 
       if (apiKey) {
-        config.llm_api_key = apiKey;
-        if (chosenProvider === "openrouter") {
-          config.openrouter_api_key = apiKey;
+        process.stdout.write("  Validating key... ");
+        const result = await validateApiKey(chosenProvider, apiKey);
+        if (result.ok) {
+          console.log("valid!\n");
+        } else {
+          console.log(`could not validate (${result.error || "unknown error"})`);
+          const proceed = await confirm({
+            message: "Use this key anyway?",
+            default: true,
+          });
+          if (!proceed) {
+            apiKey = null;
+            printWarning("Skipped. Set it later with: voxlert config set llm_api_key <key>");
+            console.log("");
+          } else {
+            console.log("");
+          }
         }
-    
+
+        if (apiKey) {
+          config.llm_api_key = apiKey;
+          if (chosenProvider === "openrouter") {
+            config.openrouter_api_key = apiKey;
+          }
+        } else {
+          config.llm_api_key = null;
+          config.openrouter_api_key = null;
+        }
       } else {
         config.llm_api_key = null;
         config.openrouter_api_key = null;
-    
       }
-    } else {
-      config.llm_api_key = null;
-      config.openrouter_api_key = null;
-  
-    }
 
-    // Set default model for chosen provider
-    if (!config.llm_model && !config.openrouter_model) {
-      config.llm_model = provider.defaultModel;
-  
+      // Set default model for chosen provider
+      if (!config.llm_model && !config.openrouter_model) {
+        config.llm_model = provider.defaultModel;
+      }
     }
   } else {
     config.llm_api_key = null;

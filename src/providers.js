@@ -11,6 +11,16 @@ export const LLM_PROVIDERS = {
     authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
     format: "openai",
   },
+  local: {
+    name: "Local LLM (Ollama / LM Studio / llama.cpp)",
+    description: "fully offline, no API key needed",
+    baseUrl: "http://localhost:11434/v1",
+    defaultModel: "llama3.2",
+    signupUrl: null,
+    authHeader: () => ({}),
+    format: "openai",
+    local: true,
+  },
   openai: {
     name: "OpenAI",
     description: "GPT-4o-mini",
