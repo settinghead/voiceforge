@@ -15,7 +15,7 @@ export const LLM_PROVIDERS = {
     name: "Local LLM (Ollama / LM Studio / llama.cpp)",
     description: "fully offline, no API key needed",
     baseUrl: "http://localhost:11434/v1",
-    defaultModel: "llama3.2",
+    defaultModel: "qwen3:8b",
     signupUrl: null,
     authHeader: () => ({}),
     format: "openai",
