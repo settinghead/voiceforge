@@ -128,6 +128,98 @@ Voice packs live in `../packs/` (the repository-level `packs/` directory). Each 
 
 The server reads all packs at startup and caches them. Only packs that have both `voice.wav` and a non-empty `ref_text` in `pack.json` are loaded.
 
+## Auto-start on boot
+
+### macOS (LaunchAgent)
+
+Create `~/Library/LaunchAgents/com.voxlert.qwen-tts.plist`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.voxlert.qwen-tts</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/FULL/PATH/TO/cli/qwen3-tts-server/run.sh</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/Users/YOU/Library/Logs/qwen-tts.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/YOU/Library/Logs/qwen-tts.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+</dict>
+</plist>
+```
+
+Replace `/FULL/PATH/TO/` and `/Users/YOU/` with real paths. Then load it:
+
+```bash
+# Load (starts immediately and on every future login)
+launchctl load ~/Library/LaunchAgents/com.voxlert.qwen-tts.plist
+
+# Unload
+launchctl unload ~/Library/LaunchAgents/com.voxlert.qwen-tts.plist
+
+# Check status
+launchctl list | grep qwen-tts
+
+# View logs
+tail -f ~/Library/Logs/qwen-tts.log
+```
+
+**Note:** `run.sh` already restarts the server up to 10 times on crash, so the plist does not set `KeepAlive`. If the script itself exits (crash budget exhausted or clean shutdown), launchd will not re-launch it. To also let launchd restart the script after budget exhaustion, add `<key>KeepAlive</key><true/>` to the plist.
+
+### Linux (systemd user service)
+
+Create `~/.config/systemd/user/qwen-tts.service`:
+
+```ini
+[Unit]
+Description=Qwen3-TTS server (Voxlert)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/bin/bash /FULL/PATH/TO/cli/qwen3-tts-server/run.sh
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target
+```
+
+Replace `/FULL/PATH/TO/` with the real path. Then enable it:
+
+```bash
+# Reload, enable (auto-start on login), and start now
+systemctl --user daemon-reload
+systemctl --user enable --now qwen-tts
+
+# Check status
+systemctl --user status qwen-tts
+
+# View logs
+journalctl --user -u qwen-tts -f
+
+# Stop / disable
+systemctl --user disable --now qwen-tts
+```
+
+**Note:** For the service to run without an active login session, enable lingering: `loginctl enable-linger $USER`.
+
+
 ## Troubleshooting
 
 **Segfault or crash under concurrent requests**  
