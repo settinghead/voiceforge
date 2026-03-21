@@ -13,6 +13,7 @@ import asyncio
 import concurrent.futures
 from pathlib import Path
 
+import numpy as np
 import soundfile as sf
 import uvicorn
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
@@ -35,8 +36,13 @@ app = FastAPI(title="Qwen3-TTS Server")
 # Filled at startup
 model = None
 model_name = None
-voice_meta: dict[str, dict] = {}           # MLX:     voice_id -> {ref_audio, ref_text}
+voice_meta: dict[str, dict] = {}           # MLX:     voice_id -> {ref_text}
 voice_prompt_cache: dict[str, list] = {}    # PyTorch: voice_id -> VoiceClonePromptItem list
+
+# MLX voice prompt cache: voice_id -> {speaker_embed, ref_codes, ref_text, audio}
+# Pre-computed at registration time so that generation avoids redundant
+# speaker-encoder and speech-tokenizer work on every cache-miss TTS call.
+_mlx_prompt_cache: dict[str, dict] = {}
 
 # Single-thread executor — keeps all GPU work on ONE thread to respect
 # Metal thread affinity (MLX) and MPS requirements (PyTorch).
@@ -63,8 +69,82 @@ def _load_mlx():
     print("MLX model loaded.")
 
 
+def _precompute_voice_mlx(wav_path: str, ref_text: str) -> dict:
+    """Extract and return voice-specific artifacts that are reused across
+    every TTS call for the same voice.
+
+    Returns dict with:
+      speaker_embed: mx.array — x-vector from the speaker encoder
+      ref_codes:     mx.array or None — speech tokenizer codes (ICL mode)
+      ref_text:      str
+      audio:         mx.array — loaded waveform (avoids re-reading WAV)
+    """
+    import mlx.core as mx
+    from mlx_audio.utils import load_audio
+
+    audio = load_audio(wav_path, sample_rate=model.sample_rate)
+
+    # Speaker embedding (x-vector)
+    speaker_embed = None
+    if getattr(model, "speaker_encoder", None) is not None:
+        speaker_embed = model.extract_speaker_embedding(audio)
+        mx.eval(speaker_embed)
+
+    # Reference codec codes (for ICL voice cloning)
+    ref_codes = None
+    st = getattr(model, "speech_tokenizer", None)
+    if st is not None and getattr(st, "has_encoder", False):
+        audio_enc = audio[None, None, :] if audio.ndim == 1 else audio[None, :]
+        ref_codes = st.encode(audio_enc)
+        mx.eval(ref_codes)
+
+    return {
+        "speaker_embed": speaker_embed,
+        "ref_codes": ref_codes,
+        "ref_text": ref_text,
+        "audio": audio,
+    }
+
+
+def _save_voice_cache_mlx(voice_dir: Path, prompt: dict):
+    """Persist pre-computed voice embeddings as .npy so they survive restarts."""
+    if prompt["speaker_embed"] is not None:
+        np.save(str(voice_dir / "speaker_embed.npy"), np.array(prompt["speaker_embed"]))
+    if prompt["ref_codes"] is not None:
+        np.save(str(voice_dir / "ref_codes.npy"), np.array(prompt["ref_codes"]))
+
+
+def _load_voice_cache_mlx(voice_dir: Path, ref_text: str) -> dict | None:
+    """Load persisted voice embeddings from disk. Returns None if not cached."""
+    import mlx.core as mx
+    from mlx_audio.utils import load_audio
+
+    embed_path = voice_dir / "speaker_embed.npy"
+    codes_path = voice_dir / "ref_codes.npy"
+    wav_path = voice_dir / "voice.wav"
+
+    # Must have at least the speaker embedding cached
+    if not embed_path.exists():
+        return None
+
+    speaker_embed = mx.array(np.load(str(embed_path)))
+    ref_codes = mx.array(np.load(str(codes_path))) if codes_path.exists() else None
+    audio = load_audio(str(wav_path), sample_rate=model.sample_rate)
+
+    return {
+        "speaker_embed": speaker_embed,
+        "ref_codes": ref_codes,
+        "ref_text": ref_text,
+        "audio": audio,
+    }
+
+
 def _load_voices_mlx():
-    """Load previously-uploaded voices from disk (MLX backend)."""
+    """Load previously-uploaded voices from disk (MLX backend).
+
+    Tries to load pre-computed embeddings (.npy) first; falls back to full
+    recomputation from the WAV file if cached embeddings are missing.
+    """
     if not VOICES_DIR.exists():
         return
     for voice_dir in sorted(VOICES_DIR.iterdir()):
@@ -76,42 +156,89 @@ def _load_voices_mlx():
             continue
         meta = json.loads(meta_path.read_text())
         voice_id = voice_dir.name
-        voice_meta[voice_id] = {
-            "ref_audio": str(wav_path),
-            "ref_text": meta["ref_text"],
-        }
-        print(f"  voice: {voice_id}")
+        ref_text = meta["ref_text"]
+
+        # Try cached embeddings first (fast path — no model inference)
+        prompt = _load_voice_cache_mlx(voice_dir, ref_text)
+        if prompt is None:
+            # Cold start: compute from WAV and persist for next time
+            print(f"  computing voice prompt: {voice_id}")
+            prompt = _precompute_voice_mlx(str(wav_path), ref_text)
+            _save_voice_cache_mlx(voice_dir, prompt)
+        else:
+            print(f"  loaded cached voice: {voice_id}")
+
+        voice_meta[voice_id] = {"ref_text": ref_text}
+        _mlx_prompt_cache[voice_id] = prompt
     print(f"Loaded {len(voice_meta)} voices")
 
 
 def _register_voice_mlx(voice_id: str, wav_path: str, ref_text: str):
-    voice_meta[voice_id] = {"ref_audio": wav_path, "ref_text": ref_text}
+    """Register a new voice — pre-compute and cache embeddings.
+
+    Must be called from the GPU executor thread.
+    """
+    prompt = _precompute_voice_mlx(wav_path, ref_text)
+    _save_voice_cache_mlx(VOICES_DIR / voice_id, prompt)
+    voice_meta[voice_id] = {"ref_text": ref_text}
+    _mlx_prompt_cache[voice_id] = prompt
 
 
-def _generate_mlx(text: str, ref_audio: str | None, ref_text: str | None) -> bytes:
+def _generate_mlx(text: str, voice_id: str | None) -> bytes:
+    """Generate TTS audio, injecting cached voice embeddings when available.
+
+    When a voice_id has pre-computed data, we temporarily replace the model's
+    extract_speaker_embedding and speech_tokenizer.encode with lambdas that
+    return the cached values.  This is safe because the GPU executor is
+    single-threaded — only one generation runs at a time.
+    """
     import mlx.core as mx
-    import numpy as np
 
     kwargs = {"text": text}
-    if ref_audio and ref_text:
-        kwargs["ref_audio"] = ref_audio
-        kwargs["ref_text"] = ref_text
 
-    chunks = []
-    sample_rate = None
-    for result in model.generate(**kwargs):
-        chunks.append(np.array(result.audio))
-        if sample_rate is None:
-            sample_rate = result.sample_rate
+    original_extract = None
+    original_encode = None
 
-    audio = np.concatenate(chunks)
-    del chunks
-    mx.clear_cache()
-    gc.collect()
+    if voice_id and voice_id in _mlx_prompt_cache:
+        cached = _mlx_prompt_cache[voice_id]
+        kwargs["ref_audio"] = cached["audio"]
+        kwargs["ref_text"] = cached["ref_text"]
 
-    buf = io.BytesIO()
-    sf.write(buf, audio, sample_rate, subtype="PCM_16", format="WAV")
-    return buf.getvalue()
+        # Inject cached speaker embedding — skip mel spectrogram + encoder CNN
+        if cached["speaker_embed"] is not None:
+            original_extract = model.extract_speaker_embedding
+            _embed = cached["speaker_embed"]
+            model.extract_speaker_embedding = lambda *_a, **_kw: _embed
+
+        # Inject cached ref codes — skip speech tokenizer encoding
+        if cached["ref_codes"] is not None:
+            st = model.speech_tokenizer
+            original_encode = st.encode
+            _codes = cached["ref_codes"]
+            st.encode = lambda *_a, **_kw: _codes
+
+    try:
+        chunks = []
+        sample_rate = None
+        for result in model.generate(**kwargs):
+            chunks.append(np.array(result.audio))
+            if sample_rate is None:
+                sample_rate = result.sample_rate
+
+        audio = np.concatenate(chunks)
+        del chunks
+        mx.clear_cache()
+        gc.collect()
+
+        buf = io.BytesIO()
+        sf.write(buf, audio, sample_rate, subtype="PCM_16", format="WAV")
+        return buf.getvalue()
+    finally:
+        # Always restore originals, even on error
+        if original_extract is not None:
+            model.extract_speaker_embedding = original_extract
+        if original_encode is not None:
+            model.speech_tokenizer.encode = original_encode
 
 
 # ---------------------------------------------------------------------------
@@ -231,7 +358,7 @@ async def upload_voice(
     voice_id = _hash_audio(audio_bytes)
 
     # Already registered in memory — return immediately
-    if RUNTIME == "mlx" and voice_id in voice_meta:
+    if RUNTIME == "mlx" and voice_id in _mlx_prompt_cache:
         return {"voice_id": voice_id}
     if RUNTIME == "pytorch" and voice_id in voice_prompt_cache:
         return {"voice_id": voice_id}
@@ -243,11 +370,14 @@ async def upload_voice(
     wav_path.write_bytes(audio_bytes)
     (voice_dir / "meta.json").write_text(json.dumps({"ref_text": ref_text}))
 
-    # Register in memory
+    # Register in memory (both backends now need GPU work)
+    loop = asyncio.get_running_loop()
     if RUNTIME == "mlx":
-        _register_voice_mlx(voice_id, str(wav_path), ref_text)
+        await loop.run_in_executor(
+            _gpu_executor,
+            _register_voice_mlx, voice_id, str(wav_path), ref_text,
+        )
     else:
-        loop = asyncio.get_running_loop()
         await loop.run_in_executor(
             _gpu_executor,
             _register_voice_pytorch, voice_id, str(wav_path), ref_text,
@@ -281,19 +411,13 @@ async def tts(req: TTSRequest):
     loop = asyncio.get_running_loop()
 
     if RUNTIME == "mlx":
-        ref_audio = None
-        ref_text = None
-        if req.voice_id:
-            if req.voice_id not in voice_meta:
-                raise HTTPException(404, f"Unknown voice_id: {req.voice_id}")
-            meta = voice_meta[req.voice_id]
-            ref_audio = meta["ref_audio"]
-            ref_text = meta["ref_text"]
+        if req.voice_id and req.voice_id not in _mlx_prompt_cache:
+            raise HTTPException(404, f"Unknown voice_id: {req.voice_id}")
         try:
             wav_bytes = await asyncio.wait_for(
                 loop.run_in_executor(
                     _gpu_executor,
-                    _generate_mlx, req.text, ref_audio, ref_text,
+                    _generate_mlx, req.text, req.voice_id,
                 ),
                 timeout=TTS_TIMEOUT,
             )
