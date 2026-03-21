@@ -5,6 +5,7 @@ import { showOverlay } from "../overlay.js";
 import { listPacks, loadPack } from "../packs.js";
 import { generatePhrase } from "../llm.js";
 import { speakPhrase } from "../audio.js";
+import { resolvePrefix, DEFAULT_PREFIX } from "../prefix.js";
 
 export async function testPipeline(text, pack) {
   if (!text) {
@@ -33,12 +34,19 @@ export async function testPipeline(text, pack) {
     phrase = text;
   }
 
+  // Resolve prefix from config, same as the hook path
+  const prefixTemplate = config.prefix !== undefined ? config.prefix : DEFAULT_PREFIX;
+  const resolvedPrefix = resolvePrefix(prefixTemplate, process.cwd());
+  if (resolvedPrefix) {
+    phrase = `${resolvedPrefix}; ${phrase}`;
+  }
+
   console.log("Sending to TTS...");
   showOverlay(phrase, {
     category: "notification",
     packName: activePack.name,
     packId: activePack.id || (config.active_pack || "sc1-kerrigan-infested"),
-    prefix: "Test",
+    prefix: resolvedPrefix,
     config,
     overlayColors: activePack.overlay_colors,
   });

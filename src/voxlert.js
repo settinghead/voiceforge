@@ -6,7 +6,7 @@
  * speaks them through a local Chatterbox TTS server.
  */
 
-import { basename } from "path";
+import { resolvePrefix, DEFAULT_PREFIX } from "./prefix.js";
 import { appendFileSync, mkdirSync } from "fs";
 import { loadConfig, EVENT_MAP, CONTEXTUAL_EVENTS, FALLBACK_PHRASES } from "./config.js";
 import { extractContext, generatePhrase } from "./llm.js";
@@ -58,7 +58,7 @@ export async function processHookEvent(eventData) {
     llm_backend: config.llm_backend || "",
     tts_backend: config.tts_backend || "",
     overlay: config.overlay === true,
-    prefix: config.prefix !== undefined ? config.prefix : "${dirname}",
+    prefix: config.prefix !== undefined ? config.prefix : DEFAULT_PREFIX,
     task_complete_enabled: config.categories?.["task.complete"] !== false,
     task_error_enabled: config.categories?.["task.error"] !== false,
   });
@@ -91,38 +91,33 @@ export async function processHookEvent(eventData) {
   debugLog("processHookEvent processing", { source, eventName, category });
   // Load active voice pack
   const pack = loadPack(config);
-  const projectName = cwd ? basename(cwd) : "";
-
   // Allow callers to bypass LLM generation entirely with a pre-built phrase
   if (eventData.phrase_override && typeof eventData.phrase_override === "string") {
     const overridePhrase = eventData.phrase_override.trim();
     if (overridePhrase) {
       debugLog("processHookEvent using phrase_override", { source, phrase: overridePhrase.slice(0, 120) });
 
-      // Prepend prefix
-      const prefixTemplate = config.prefix !== undefined ? config.prefix : "${dirname}";
-      let resolvedPrefix = "";
-      if (prefixTemplate !== "") {
-        resolvedPrefix = prefixTemplate.replace(/\$\{dirname\}/g, projectName);
-        if (resolvedPrefix) {
-          const finalPhrase = `${resolvedPrefix}; ${overridePhrase}`;
-          const packId = config.active_pack || "sc1-kerrigan-infested";
-          appendLog(
-            `[${new Date().toISOString()}] source=${source} event=${eventName} category=${category} phrase=${finalPhrase.replace(/\s+/g, " ").slice(0, 120)}`,
-            config,
-          );
-          showOverlay(finalPhrase, {
-            category,
-            packName: pack.name,
-            packId: pack.id || packId,
-            prefix: resolvedPrefix,
-            config,
-            overlayColors: pack.overlay_colors,
-          });
-          await speakPhrase(finalPhrase, config, pack);
-          debugLog("processHookEvent done (phrase_override)", { source });
-          return;
-        }
+      // Resolve prefix
+      const prefixTemplate = config.prefix !== undefined ? config.prefix : DEFAULT_PREFIX;
+      const resolvedPrefix = resolvePrefix(prefixTemplate, cwd);
+      if (resolvedPrefix) {
+        const finalPhrase = `${resolvedPrefix}; ${overridePhrase}`;
+        const packId = config.active_pack || "sc1-kerrigan-infested";
+        appendLog(
+          `[${new Date().toISOString()}] source=${source} event=${eventName} category=${category} phrase=${finalPhrase.replace(/\s+/g, " ").slice(0, 120)}`,
+          config,
+        );
+        showOverlay(finalPhrase, {
+          category,
+          packName: pack.name,
+          packId: pack.id || packId,
+          prefix: resolvedPrefix,
+          config,
+          overlayColors: pack.overlay_colors,
+        });
+        await speakPhrase(finalPhrase, config, pack);
+        debugLog("processHookEvent done (phrase_override)", { source });
+        return;
       }
 
       const packId = config.active_pack || "sc1-kerrigan-infested";
@@ -196,14 +191,11 @@ export async function processHookEvent(eventData) {
     phrase = phrases[Math.floor(Math.random() * phrases.length)];
   }
 
-  // Prepend prefix (supports ${dirname} template variable)
-  const prefixTemplate = config.prefix !== undefined ? config.prefix : "${dirname}";
-  let resolvedPrefix = "";
-  if (prefixTemplate !== "") {
-    resolvedPrefix = prefixTemplate.replace(/\$\{dirname\}/g, projectName);
-    if (resolvedPrefix) {
-      phrase = `${resolvedPrefix}; ${phrase}`;
-    }
+  // Resolve prefix (supports ${project|dirname} template variables)
+  const prefixTemplate = config.prefix !== undefined ? config.prefix : DEFAULT_PREFIX;
+  const resolvedPrefix = resolvePrefix(prefixTemplate, cwd);
+  if (resolvedPrefix) {
+    phrase = `${resolvedPrefix}; ${phrase}`;
   }
 
   const packId = config.active_pack || "sc1-kerrigan-infested";
