@@ -93,6 +93,8 @@ const PROJECT_OVERRIDE_FIELDS = new Set([
   "overlay_style",
   "logging",
   "error_log",
+  "output_channels",
+  "hub_url",
 ]);
 
 /**

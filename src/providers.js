@@ -6,7 +6,7 @@ export const LLM_PROVIDERS = {
     name: "OpenRouter",
     description: "200+ models, cheap",
     baseUrl: "https://openrouter.ai/api/v1",
-    defaultModel: "google/gemma-3-27b-it",
+    defaultModel: "google/gemma-4-26b-a4b-it",
     signupUrl: "https://openrouter.ai/keys",
     authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
     format: "openai",

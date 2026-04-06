@@ -8,6 +8,7 @@
 
 import { resolvePrefix, DEFAULT_PREFIX } from "./prefix.js";
 import { appendFileSync, mkdirSync } from "fs";
+import { hostname } from "os";
 import { loadConfig, EVENT_MAP, CONTEXTUAL_EVENTS, FALLBACK_PHRASES } from "./config.js";
 import { extractContext, generatePhrase } from "./llm.js";
 import { speakPhrase } from "./audio.js";
@@ -91,6 +92,8 @@ export async function processHookEvent(eventData) {
   debugLog("processHookEvent processing", { source, eventName, category });
   // Load active voice pack
   const pack = loadPack(config);
+  // Event context for output channel dispatch (hub relay, etc.)
+  const eventCtx = { category, event: eventName, node: hostname() };
   // Allow callers to bypass LLM generation entirely with a pre-built phrase
   if (eventData.phrase_override && typeof eventData.phrase_override === "string") {
     const overridePhrase = eventData.phrase_override.trim();
@@ -115,7 +118,7 @@ export async function processHookEvent(eventData) {
           config,
           overlayColors: pack.overlay_colors,
         });
-        await speakPhrase(finalPhrase, config, pack);
+        await speakPhrase(finalPhrase, config, pack, eventCtx);
         debugLog("processHookEvent done (phrase_override)", { source });
         return;
       }
@@ -133,7 +136,7 @@ export async function processHookEvent(eventData) {
         config,
         overlayColors: pack.overlay_colors,
       });
-      await speakPhrase(overridePhrase, config, pack);
+      await speakPhrase(overridePhrase, config, pack, eventCtx);
       debugLog("processHookEvent done (phrase_override)", { source });
       return;
     }
@@ -214,23 +217,29 @@ export async function processHookEvent(eventData) {
     overlayColors: pack.overlay_colors,
   });
 
-  await speakPhrase(phrase, config, pack);
+  await speakPhrase(phrase, config, pack, eventCtx);
   debugLog("processHookEvent done (speakPhrase returned)", { source });
 }
 
 async function main() {
+  debugLog("main() entered", { argv1: process.argv[1], pid: process.pid });
   // Read event data from stdin
   let input = "";
   for await (const chunk of process.stdin) {
     input += chunk;
   }
 
+  debugLog("voxlert hook stdin received", { length: input.length, raw: input.slice(0, 600) });
+
   let eventData;
   try {
     eventData = JSON.parse(input);
-  } catch {
+  } catch (err) {
+    debugLog("voxlert hook JSON parse FAILED", { error: err.message, inputStart: input.slice(0, 200) });
     return;
   }
+
+  debugLog("voxlert hook parsed eventData", eventData);
 
   await processHookEvent(eventData);
 }
@@ -240,4 +249,6 @@ const entryUrl = new URL(process.argv[1], "file://").href;
 const thisUrl = new URL(import.meta.url).href;
 if (entryUrl === thisUrl) {
   main();
+} else {
+  debugLog("voxlert.js imported (not entry point)", { entryUrl, thisUrl });
 }

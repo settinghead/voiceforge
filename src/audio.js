@@ -14,6 +14,7 @@ import { createHash } from "crypto";
 import { spawn, execSync } from "child_process";
 import { request as httpsRequest } from "https";
 import { request as httpRequest } from "http";
+import { hostname } from "os";
 import { CACHE_DIR, QUEUE_DIR, LOCK_FILE } from "./paths.js";
 
 const DEFAULT_MAX_CACHE = 150;
@@ -498,9 +499,84 @@ export async function renderPhraseToFile(phrase, outputPath, config, pack) {
   }
 }
 
+// --- Output channel dispatch ---
+
+/**
+ * POST audio + metadata to the t-king hub for relay to mobile clients.
+ * Fire-and-forget: resolves on error, never blocks local playback.
+ */
+function postToHub(cachePath, phrase, config, pack, eventContext) {
+  const hubUrl = config.hub_url || "http://100.64.0.2:7654";
+  const endpoint = `${hubUrl}/ingest/voxlert`;
+
+  let audioData;
+  try {
+    audioData = readFileSync(cachePath);
+  } catch {
+    return Promise.resolve();
+  }
+
+  const metadata = JSON.stringify({
+    phrase,
+    pack_id: (pack && pack.id) || "_default",
+    pack_name: (pack && pack.name) || "Default",
+    category: eventContext.category || "",
+    event: eventContext.event || "",
+    node: eventContext.node || hostname(),
+    timestamp: Date.now() / 1000,
+  });
+
+  const { boundary, body } = _buildMultipart(
+    { metadata },
+    [{ name: "audio", filename: "alert.wav", contentType: "audio/wav", data: audioData }],
+  );
+
+  return new Promise((resolve) => {
+    const url = new URL(endpoint);
+    const requestFn = url.protocol === "https:" ? httpsRequest : httpRequest;
+
+    const req = requestFn(
+      endpoint,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": `multipart/form-data; boundary=${boundary}`,
+          "Content-Length": body.length,
+        },
+        timeout: 5000,
+      },
+      (res) => { res.resume(); resolve(); },
+    );
+    req.on("error", () => resolve());
+    req.on("timeout", () => { req.destroy(); resolve(); });
+    req.write(body);
+    req.end();
+  });
+}
+
+/**
+ * Dispatch cached audio to all configured output channels.
+ * Channels run concurrently — hub failure never blocks local playback.
+ */
+async function dispatchToChannels(cachePath, phrase, volume, config, pack, eventContext) {
+  const channels = config.output_channels || ["local"];
+  const tasks = [];
+
+  for (const channel of channels) {
+    if (channel === "local") {
+      enqueue(cachePath, volume);
+      tasks.push(processQueue());
+    } else if (channel === "hub") {
+      tasks.push(postToHub(cachePath, phrase, config, pack, eventContext));
+    }
+  }
+
+  await Promise.all(tasks);
+}
+
 // --- Public API ---
 
-export async function speakPhrase(phrase, config, pack) {
+export async function speakPhrase(phrase, config, pack, eventContext = {}) {
   const packId = (pack && pack.id) || "_default";
   const packCacheDir = join(CACHE_DIR, packId);
   mkdirSync(packCacheDir, { recursive: true });
@@ -531,7 +607,6 @@ export async function speakPhrase(phrase, config, pack) {
     evictCache(packCacheDir, maxCache);
   }
 
-  // Enqueue and try to become the player
-  enqueue(cachePath, volume);
-  await processQueue();
+  // Dispatch to configured output channels (local, hub, etc.)
+  await dispatchToChannels(cachePath, phrase, volume, config, pack, eventContext);
 }
