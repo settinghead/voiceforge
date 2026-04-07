@@ -9,7 +9,6 @@ const SKILL_DEST_DIR = join(homedir(), ".claude", "skills", "voxlert-config");
 const HOOK_EVENTS = {
   Stop: { matcher: "", timeout: 10, async: true },
   Notification: { matcher: "", timeout: 10, async: true },
-  SessionEnd: { matcher: "", timeout: 10, async: true },
   UserPromptSubmit: { matcher: "", timeout: 10, async: true },
   PermissionRequest: { matcher: "", timeout: 10, async: true },
   PreCompact: { matcher: "", timeout: 10, async: true },

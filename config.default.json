@@ -24,7 +24,7 @@
   "overlay_style": "custom",
   "categories": {
     "session.start": true,
-    "session.end": true,
+    "session.end": false,
     "task.complete": true,
     "task.acknowledge": false,
     "task.error": true,
