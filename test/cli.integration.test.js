@@ -83,6 +83,21 @@ test("config set persists values in the CLI config file", () => {
   assert.match(showResult.stdout, /"volume": 75/);
 });
 
+test("config set accepts JSON arrays for output channels", () => {
+  const fixture = createCliFixture();
+
+  const result = runCli(fixture, [
+    "config",
+    "set",
+    "output_channels",
+    '["local","benchday_phone"]',
+  ]);
+  assert.equal(result.status, 0);
+
+  const config = readConfig(fixture);
+  assert.deepEqual(config.output_channels, ["local", "benchday_phone"]);
+});
+
 test("pack list and pack show reflect the active pack", () => {
   const fixture = createCliFixture();
 

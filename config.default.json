@@ -17,6 +17,8 @@
   "qwen_tts_url": "http://localhost:8100",
   "active_pack": "sc1-kerrigan-infested",
   "volume": 1.0,
+  "output_channels": ["local"],
+  "hub_url": "http://100.64.0.2:7654",
   "logging": true,
   "error_log": false,
   "overlay": true,

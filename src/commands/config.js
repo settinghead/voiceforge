@@ -13,6 +13,17 @@ function coerceValue(value) {
   if (value === "null") return null;
   if (value === "true") return true;
   if (value === "false") return false;
+  if (
+    typeof value === "string" &&
+    ((value.trim().startsWith("[") && value.trim().endsWith("]")) ||
+      (value.trim().startsWith("{") && value.trim().endsWith("}")))
+  ) {
+    try {
+      return JSON.parse(value);
+    } catch {
+      // Fall through to string/number handling.
+    }
+  }
   if (value !== "" && !isNaN(Number(value))) return Number(value);
   return value;
 }

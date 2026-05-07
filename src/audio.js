@@ -18,6 +18,31 @@ import { hostname } from "os";
 import { CACHE_DIR, QUEUE_DIR, LOCK_FILE } from "./paths.js";
 
 const DEFAULT_MAX_CACHE = 150;
+const BENCHDAY_PHONE_CHANNEL = "benchday_phone";
+const CHANNEL_ALIASES = new Map([
+  ["hub", BENCHDAY_PHONE_CHANNEL],
+  ["benchday", BENCHDAY_PHONE_CHANNEL],
+  ["phone", BENCHDAY_PHONE_CHANNEL],
+  ["mobile", BENCHDAY_PHONE_CHANNEL],
+  ["local_audio", "local"],
+]);
+
+function normalizeChannelName(value) {
+  const text = String(value ?? "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+  if (!text) return "";
+  return CHANNEL_ALIASES.get(text) || text;
+}
+
+export function normalizeOutputChannels(channels) {
+  const raw = Array.isArray(channels)
+    ? channels
+    : typeof channels === "string"
+      ? channels.split(",")
+      : [];
+  const normalized = raw.map(normalizeChannelName).filter(Boolean);
+  const unique = Array.from(new Set(normalized));
+  return unique.length > 0 ? unique : ["local"];
+}
 
 // voice_id cache: voicePath -> voice_id (avoids re-uploading every call)
 const _voiceIdCache = new Map();
@@ -505,7 +530,7 @@ export async function renderPhraseToFile(phrase, outputPath, config, pack) {
  * POST audio + metadata to the t-king hub for relay to mobile clients.
  * Fire-and-forget: resolves on error, never blocks local playback.
  */
-function postToHub(cachePath, phrase, config, pack, eventContext) {
+function postToHub(cachePath, phrase, config, pack, eventContext, channel = BENCHDAY_PHONE_CHANNEL) {
   const hubUrl = config.hub_url || "http://100.64.0.2:7654";
   const endpoint = `${hubUrl}/ingest/voxlert`;
 
@@ -522,7 +547,10 @@ function postToHub(cachePath, phrase, config, pack, eventContext) {
     pack_name: (pack && pack.name) || "Default",
     category: eventContext.category || "",
     event: eventContext.event || "",
+    source: eventContext.source || "voxlert",
     node: eventContext.node || hostname(),
+    channels: [channel],
+    output_channel: channel,
     timestamp: Date.now() / 1000,
   });
 
@@ -559,15 +587,15 @@ function postToHub(cachePath, phrase, config, pack, eventContext) {
  * Channels run concurrently — hub failure never blocks local playback.
  */
 async function dispatchToChannels(cachePath, phrase, volume, config, pack, eventContext) {
-  const channels = config.output_channels || ["local"];
+  const channels = normalizeOutputChannels(config.output_channels);
   const tasks = [];
 
   for (const channel of channels) {
     if (channel === "local") {
       enqueue(cachePath, volume);
       tasks.push(processQueue());
-    } else if (channel === "hub") {
-      tasks.push(postToHub(cachePath, phrase, config, pack, eventContext));
+    } else if (channel === BENCHDAY_PHONE_CHANNEL) {
+      tasks.push(postToHub(cachePath, phrase, config, pack, eventContext, channel));
     }
   }
 

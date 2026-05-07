@@ -93,7 +93,7 @@ export async function processHookEvent(eventData) {
   // Load active voice pack
   const pack = loadPack(config);
   // Event context for output channel dispatch (hub relay, etc.)
-  const eventCtx = { category, event: eventName, node: hostname() };
+  const eventCtx = { source, category, event: eventName, node: hostname() };
   // Allow callers to bypass LLM generation entirely with a pre-built phrase
   if (eventData.phrase_override && typeof eventData.phrase_override === "string") {
     const overridePhrase = eventData.phrase_override.trim();
