@@ -11,6 +11,7 @@ import json
 import hashlib
 import asyncio
 import concurrent.futures
+from collections import OrderedDict
 from pathlib import Path
 
 import numpy as np
@@ -23,6 +24,11 @@ from pydantic import BaseModel
 import cache
 
 RUNTIME = os.environ.get("QWEN_TTS_RUNTIME", "mlx").lower()
+
+# Cap in-memory voice caches so that registering thousands of unique voices
+# cannot grow memory without bound.  Evicted voices remain on disk and are
+# reloaded on next use.  Default 100 is generous for normal usage.
+_MAX_VOICES_IN_MEMORY = int(os.environ.get("QWEN_TTS_MAX_VOICES_MEM", "100"))
 VOICES_DIR = Path(os.environ.get(
     "QWEN_TTS_VOICES_DIR",
     str(Path(__file__).resolve().parent / "voices"),
@@ -36,15 +42,15 @@ app = FastAPI(title="Qwen3-TTS Server")
 # Filled at startup
 model = None
 model_name = None
-voice_meta: dict[str, dict] = {}           # MLX:     voice_id -> {ref_text}
-voice_prompt_cache: dict[str, list] = {}    # PyTorch: voice_id -> VoiceClonePromptItem list
+voice_meta: OrderedDict[str, dict] = OrderedDict()           # MLX:     voice_id -> {ref_text}
+voice_prompt_cache: OrderedDict[str, list] = OrderedDict()    # PyTorch: voice_id -> VoiceClonePromptItem list
 
 # MLX voice prompt cache: voice_id -> {speaker_embed, ref_codes, ref_text, audio}
 # Pre-computed at registration time so that generation avoids redundant
 # speaker-encoder and speech-tokenizer work on every cache-miss TTS call.
 # The "audio" field is a minimal stub — the full waveform is not retained
 # because the monkey-patched methods ignore their input.
-_mlx_prompt_cache: dict[str, dict] = {}
+_mlx_prompt_cache: OrderedDict[str, dict] = OrderedDict()
 
 # Single-thread executor — keeps all GPU work on ONE thread to respect
 # Metal thread affinity (MLX) and MPS requirements (PyTorch).
@@ -71,6 +77,19 @@ MLX_MODEL_ID = os.environ.get(
 _MLX_CACHE_LIMIT = int(os.environ.get("QWEN_TTS_MLX_CACHE_MB", "256")) * 1024 * 1024
 
 
+def _trim_voice_caches() -> None:
+    """Evict oldest voices from in-memory caches when over capacity.
+
+    Oldest = least-recently registered/loaded.  Evicted voices remain on disk
+    and are reloaded automatically on next use.
+    """
+    while len(voice_meta) > _MAX_VOICES_IN_MEMORY:
+        oldest, _ = voice_meta.popitem(last=False)
+        _mlx_prompt_cache.pop(oldest, None)
+    while len(voice_prompt_cache) > _MAX_VOICES_IN_MEMORY:
+        voice_prompt_cache.popitem(last=False)
+
+
 def _load_mlx():
     global model, model_name
     import mlx.core as mx
@@ -87,6 +106,7 @@ def _load_mlx():
     active_mb = mx.get_active_memory() / 1024 / 1024
     print(f"MLX model loaded.  Active Metal memory: {active_mb:.0f} MB  "
           f"(cache limit: {_MLX_CACHE_LIMIT // 1024 // 1024} MB)")
+    mx.reset_peak_memory()
 
 
 def _precompute_voice_mlx(wav_path: str, ref_text: str) -> dict:
@@ -215,6 +235,7 @@ def _load_voices_mlx():
 
         voice_meta[voice_id] = {"ref_text": ref_text}
         _mlx_prompt_cache[voice_id] = prompt
+    _trim_voice_caches()
     print(f"Loaded {len(voice_meta)} voices")
 
 
@@ -226,7 +247,10 @@ def _register_voice_mlx(voice_id: str, wav_path: str, ref_text: str):
     prompt = _precompute_voice_mlx(wav_path, ref_text)
     _save_voice_cache_mlx(VOICES_DIR / voice_id, prompt)
     voice_meta[voice_id] = {"ref_text": ref_text}
+    voice_meta.move_to_end(voice_id)
     _mlx_prompt_cache[voice_id] = prompt
+    _mlx_prompt_cache.move_to_end(voice_id)
+    _trim_voice_caches()
 
 
 def _generate_mlx(text: str, voice_id: str | None) -> bytes:
@@ -348,6 +372,7 @@ def _load_voices_pytorch():
         )
         voice_prompt_cache[voice_id] = prompt
         print(f"  cached voice: {voice_id}")
+    _trim_voice_caches()
     print(f"Loaded {len(voice_prompt_cache)} voices")
 
 
@@ -357,6 +382,8 @@ def _register_voice_pytorch(voice_id: str, wav_path: str, ref_text: str):
         ref_text=ref_text,
     )
     voice_prompt_cache[voice_id] = prompt
+    voice_prompt_cache.move_to_end(voice_id)
+    _trim_voice_caches()
 
 
 def _generate_pytorch(text: str, voice_clone_prompt) -> bytes:
