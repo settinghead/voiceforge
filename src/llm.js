@@ -5,7 +5,7 @@ import { request as httpsRequest } from "https";
 import { request as httpRequest } from "http";
 import { COLLECT_DIR, STATE_DIR, USAGE_FILE } from "./paths.js";
 import { buildSystemPrompt } from "./formats.js";
-import { getProvider, getApiKey, getModel, formatRequestBody, parseResponse, getEndpointUrl } from "./providers.js";
+import { getProvider, getApiKey, getModel, getModelList, formatRequestBody, parseResponse, getEndpointUrl } from "./providers.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf-8"));
@@ -83,6 +83,7 @@ function cleanPhrase(raw) {
 
 /**
  * Generic cloud LLM request — works with any provider in providers.js.
+ * Tries models in order until one returns a usable phrase.
  */
 function generatePhraseCloud(context, config, style, llmTemperature, examples) {
   return new Promise((resolve) => {
@@ -93,13 +94,11 @@ function generatePhraseCloud(context, config, style, llmTemperature, examples) {
     const apiKey = getApiKey(config);
     if (!apiKey && !provider.local) return resolve({ phrase: null, fallbackReason: "no_api_key" });
 
-    const model = getModel(config);
     const messages = [
       { role: "system", content: buildSystemPrompt(style, "status-report", examples) },
       { role: "user", content: context },
     ];
     const temperature = llmTemperature != null ? llmTemperature : 0.9;
-    const payload = formatRequestBody(provider, model, messages, 30, temperature);
 
     let url;
     try {
@@ -108,48 +107,79 @@ function generatePhraseCloud(context, config, style, llmTemperature, examples) {
       return resolve({ phrase: null, fallbackReason: "invalid_base_url", detail: provider.baseUrl });
     }
 
-    const authHeaders = provider.authHeader(apiKey);
-    const headers = {
-      ...authHeaders,
-      "Content-Type": "application/json",
-      "Content-Length": Buffer.byteLength(payload),
-    };
-
     const isHttps = url.protocol === "https:";
     const reqFn = isHttps ? httpsRequest : httpRequest;
 
-    const req = reqFn(
-      url,
-      { method: "POST", headers, timeout: 5000 },
-      (res) => {
-        let data = "";
-        res.on("data", (chunk) => (data += chunk));
-        res.on("end", () => {
-          try {
-            const result = JSON.parse(data);
-            const parsed = parseResponse(provider, result);
-            logUsage(model, parsed.usage);
-            const phrase = cleanPhrase(parsed.text);
-            saveLlmPair(messages, parsed.text, model, config);
-            if (phrase) {
-              resolve({ phrase, fallbackReason: null, usage: parsed.usage });
-            } else {
-              resolve({ phrase: null, fallbackReason: "empty_response", detail: result, usage: parsed.usage });
-            }
-          } catch (err) {
-            resolve({ phrase: null, fallbackReason: "parse_error", detail: `${err.message}; body=${data.slice(0, 200)}` });
-          }
-        });
-      },
-    );
+    const modelList = getModelList(config);
+    let attemptIndex = 0;
+    let lastResult = { phrase: null, fallbackReason: "no_models_tried" };
 
-    req.on("error", (err) => resolve({ phrase: null, fallbackReason: "request_error", detail: err.message }));
-    req.on("timeout", () => {
-      req.destroy();
-      resolve({ phrase: null, fallbackReason: "timeout" });
-    });
-    req.write(payload);
-    req.end();
+    function tryNextModel() {
+      if (attemptIndex >= modelList.length) {
+        return resolve(lastResult);
+      }
+      const model = modelList[attemptIndex++];
+      const payload = formatRequestBody(provider, model, messages, 30, temperature);
+      const authHeaders = provider.authHeader(apiKey);
+      const headers = {
+        ...authHeaders,
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(payload),
+      };
+
+      const req = reqFn(
+        url,
+        { method: "POST", headers, timeout: 5000 },
+        (res) => {
+          let data = "";
+          res.on("data", (chunk) => (data += chunk));
+          res.on("end", () => {
+            if (res.statusCode < 200 || res.statusCode >= 300) {
+              lastResult = {
+                phrase: null,
+                fallbackReason: "http_error",
+                detail: `status=${res.statusCode}; body=${data.slice(0, 200)}`,
+                model,
+              };
+              tryNextModel();
+              return;
+            }
+            try {
+              // Some providers (e.g. Gemma 4 via OpenRouter) prepend whitespace
+              const trimmed = data.trim();
+              const result = JSON.parse(trimmed);
+              const parsed = parseResponse(provider, result);
+              logUsage(model, parsed.usage);
+              const phrase = cleanPhrase(parsed.text);
+              saveLlmPair(messages, parsed.text, model, config);
+              if (phrase) {
+                resolve({ phrase, fallbackReason: null, usage: parsed.usage, model });
+              } else {
+                lastResult = { phrase: null, fallbackReason: "empty_response", detail: result, usage: parsed.usage, model };
+                tryNextModel();
+              }
+            } catch (err) {
+              lastResult = { phrase: null, fallbackReason: "parse_error", detail: `${err.message}; body=${data.slice(0, 200)}`, model };
+              tryNextModel();
+            }
+          });
+        },
+      );
+
+      req.on("error", (err) => {
+        lastResult = { phrase: null, fallbackReason: "request_error", detail: err.message, model };
+        tryNextModel();
+      });
+      req.on("timeout", () => {
+        req.destroy();
+        lastResult = { phrase: null, fallbackReason: "timeout", model };
+        tryNextModel();
+      });
+      req.write(payload);
+      req.end();
+    }
+
+    tryNextModel();
   });
 }
 

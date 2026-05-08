@@ -6,7 +6,7 @@ export const LLM_PROVIDERS = {
     name: "OpenRouter",
     description: "200+ models, cheap",
     baseUrl: "https://openrouter.ai/api/v1",
-    defaultModel: "google/gemma-4-26b-a4b-it",
+    defaultModel: "meta-llama/llama-4-scout",
     signupUrl: "https://openrouter.ai/keys",
     authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
     format: "openai",
@@ -79,6 +79,36 @@ export function getModel(config) {
     return config.openrouter_model;
   }
   return provider ? provider.defaultModel : "gpt-4o-mini";
+}
+
+/**
+ * Return an ordered list of models to try for fallback.
+ * Checks config.llm_fallback_models first, then builds a sensible
+ * provider-specific default chain so flaky models have backups.
+ */
+export function getModelList(config) {
+  if (Array.isArray(config.llm_fallback_models) && config.llm_fallback_models.length > 0) {
+    return config.llm_fallback_models;
+  }
+  const primary = getModel(config);
+  const backend = config.llm_backend || "openrouter";
+  if (backend === "openrouter") {
+    // Reliable fallback chain for OpenRouter — tested May 2026
+    // llama-4-scout: fast, ~150 tokens, respects max_tokens
+    // deepseek-chat-v3: reliable backup, ~140 tokens
+    const defaults = [
+      "meta-llama/llama-4-scout",
+      "deepseek/deepseek-chat-v3-0324",
+      "microsoft/phi-4",
+    ];
+    // De-duplicate: put primary first, then the rest
+    const list = [primary];
+    for (const m of defaults) {
+      if (m !== primary) list.push(m);
+    }
+    return list;
+  }
+  return [primary];
 }
 
 /**

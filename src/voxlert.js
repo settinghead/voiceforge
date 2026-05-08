@@ -202,12 +202,14 @@ export async function processHookEvent(eventData) {
         debugLog("processHookEvent generated phrase", {
           source,
           eventName,
+          model: result.model || "unknown",
           phrase: phrase.replace(/\s+/g, " ").slice(0, 160),
         });
       } else {
         debugLog("processHookEvent generation fell back", {
           source,
           eventName,
+          model: result.model || "unknown",
           fallbackReason,
           fallbackDetail,
         });
