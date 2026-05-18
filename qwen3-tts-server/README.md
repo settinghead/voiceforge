@@ -75,6 +75,7 @@ QWEN_TTS_RUNTIME=pytorch QWEN_TTS_MODEL=0.6B ./run.sh
 | `QWEN_TTS_RUNTIME` | `mlx` | Backend: `mlx` or `pytorch` |
 | `QWEN_TTS_MLX_MODEL` | `mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit` | HuggingFace model ID for MLX |
 | `QWEN_TTS_MODEL` | `1.7B` | PyTorch model size: `1.7B` or `0.6B` |
+| `QWEN_TTS_TIMEOUT` | `600` | Per-request generation timeout in seconds |
 
 ## API endpoints
 
@@ -90,7 +91,7 @@ Generate speech from text using a voice pack.
 
 **Response:** `audio/wav` (PCM 16-bit)
 
-**Errors:** `404` if pack_id not found, `504` if generation exceeds 60 s timeout.
+**Errors:** `404` if pack_id not found, `504` if generation exceeds the configured timeout.
 
 ```bash
 curl -X POST http://localhost:8100/tts \

@@ -35,7 +35,7 @@ VOICES_DIR = Path(os.environ.get(
 ))
 MODELS_DIR = Path(__file__).resolve().parent / "models"
 PORT = 8100
-TTS_TIMEOUT = 60
+TTS_TIMEOUT = int(os.environ.get("QWEN_TTS_TIMEOUT", "600"))
 
 app = FastAPI(title="Qwen3-TTS Server")
 
@@ -520,6 +520,7 @@ def health():
     info = {
         "model": model_name,
         "runtime": RUNTIME,
+        "tts_timeout_seconds": TTS_TIMEOUT,
     }
 
     if RUNTIME == "mlx":
